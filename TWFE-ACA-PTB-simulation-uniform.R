@@ -401,9 +401,9 @@ m2_dte_yr_ea_ag <- aggte(m2_dte_yr_ea, type="dynamic", cband=TRUE)
 # define the truth 
 dte_truth <- data.frame(estimator="truth", time= (min(dat_dte$time_since_A, na.rm=T)+1):max(dat_dte$time_since_A, na.rm=T), 
                         result=c(rep(0,-1*min(dat_dte$time_since_A, na.rm=T) - 1), 
-                                 rep(DTE[1], 6), 
-                                 rep(DTE[2], 6), 
-                                 rep(DTE[3], max(dat_dte$time_since_A, na.rm=T) - 11)), lb=NA, ub=NA)
+                                 rep(DTE[1], 12), 
+                                 rep(DTE[2], 12), 
+                                 rep(DTE[3], max(dat_dte$time_since_A, na.rm=T) - 23)), lb=NA, ub=NA)
 
 # twfe -- save estimates from model and get standard errors from sandwich variance matrix 
 # note: sandwich variance matrix is giving smaller estimates of variance than we're getting from the model 
@@ -459,7 +459,7 @@ return(overall_result)
 }
 
 
-results_ls <- lapply(1:30, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02)))
+results_ls <- lapply(1:10, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02)))
 
 results_df <- data.frame(do.call(rbind, results_ls))
 
