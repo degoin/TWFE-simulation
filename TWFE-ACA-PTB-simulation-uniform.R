@@ -459,7 +459,7 @@ return(overall_result)
 }
 
 
-results_ls <- lapply(1:10, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02)))
+results_ls <- lapply(1:1000, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02)))
 
 results_df <- data.frame(do.call(rbind, results_ls))
 
@@ -497,7 +497,7 @@ p1 <- ggplot(results_df_summary %>% filter(parameter %in% c("CTE","HTE","DTE.avg
   scale_x_discrete(labels=c("group-time \nATT", "ever-treated \ngroup-time ATT","TWFE", "ever-treated \nTWFE")) + 
   theme(legend.position = "none") + scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33"))
 
-p1
+#p1
 #ggsave(p1, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_coverage_PTB.pdf", width=10)
 
 p2 <- ggplot(results_df_summary %>% filter(parameter %in% c("CTE","HTE","DTE.avg")))  + 
@@ -507,7 +507,7 @@ p2 <- ggplot(results_df_summary %>% filter(parameter %in% c("CTE","HTE","DTE.avg
   scale_x_discrete(labels=c("group-time \nATT", "ever-treated \ngroup-time ATT", "TWFE", "ever-treated \nTWFE")) + 
   theme(legend.position = "none") + scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33"))
 
-p2
+#p2
 #ggsave(p2, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_bias_PTB.pdf", width=10)
 
 
@@ -518,7 +518,7 @@ p3 <- ggplot(results_df_summary %>% filter(parameter %in% c("CTE","HTE","DTE.avg
   scale_x_discrete(labels=c("group-time \nATT", "ever-treated \ngroup-time ATT", "TWFE", "ever-treated \nTWFE")) + 
   theme(legend.position = "none") + scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3", "#e34a33"))
 
-p3
+#p3
 #ggsave(p3, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_mse_PTB.pdf", width=10)
 
 
@@ -539,7 +539,7 @@ p4 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.av
  theme(legend.position = "none")  +   geom_text_repel(aes(x=method, y=coverage, label = time_pt)) 
   
   
-p4
+#p4
 
 # bias
 p5 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg"))) + 
@@ -549,7 +549,7 @@ p5 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.av
   theme_bw() +   scale_x_discrete(labels=c("group-time \nATT", "ever-treated \ngroup-time ATT", "TWFE", "ever-treated \nTWFE")) +
   geom_text_repel(aes(x=method, y=bias, label = time_pt)) +  theme(legend.position = "none") 
 
-p5
+#p5
 
 # MSE
 p6 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg"))) + 
@@ -559,5 +559,5 @@ p6 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.av
   theme_bw() +   scale_x_discrete(labels=c("group-time \nATT","ever-treated \ngroup-time ATT", "TWFE", "ever-treated \nTWFE")) +
   geom_text_repel(aes(x=method, y=MSE, label = time_pt)) +  theme(legend.position = "none") 
 
-p6
+#p6
 
