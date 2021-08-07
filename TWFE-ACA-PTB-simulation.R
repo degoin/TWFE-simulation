@@ -263,7 +263,7 @@ m1_dte_var <- vcovHC(m1_dte, type="HC3")
 
 # estimate effects using group-time ATT 
 m2_dte <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte, anticipation=0)
-m2_dte_ag <- aggte(m2_dte, type="group")
+m2_dte_ag <- aggte(m2_dte, type="simple")
 #summary(m2_hte_ag) 
 #ggdid(m2_hte_ag)
 
@@ -278,7 +278,7 @@ m1_dte_var_i <- vcovHC(m1_dte_i, type="HC3")
 
 # estimate effects using group-time ATT among those who eventually get the intervention 
 m2_dte_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte_i, anticipation=0, control_group = "notyettreated")
-m2_dte_ea_ag <- aggte(m2_dte_ea, type="group")
+m2_dte_ea_ag <- aggte(m2_dte_ea, type="simple")
 
 # calculate number of state-months of treatment for denominator, state-months of each treatment size in numerator
 dat_dte <- dat_dte %>% group_by(State) %>% mutate(num_post_months = max(time_since_A))
