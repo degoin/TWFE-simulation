@@ -9,8 +9,9 @@ set.seed(38525753)
 
 # combine all years into one data frame
 df_ls <- list()
-for(i in 2011:2017) {
-df_ls[[i - 2010]] <- read.csv(paste0("/Users/danagoin/Documents/Research projects/TWFE/data/state-month-ptb-2-",i,".csv"))
+for(i in 2011:2016) {
+#df_ls[[i - 2010]] <- read.csv(paste0("/Users/danagoin/Documents/Research projects/TWFE/data/state-month-ptb-2-",i,".csv"))
+df_ls[[i - 2010]] <- read.csv(paste0("./intermediate-data/state-month-ptb-2-",i,".csv"))
 if (i >2015) {
   df_ls[[i-2010]] <- df_ls[[i-2010]] %>% rename(MRSTATEPSTL = MRSTATE) 
 }
@@ -19,8 +20,10 @@ if (i >2015) {
 df_ptb <- do.call(rbind, df_ls)
 
 # merge on Medicaid expansion dates 
-df_e <- read_xlsx("/Users/danagoin/Documents/Research projects/TWFE/data/ACA-expansion.xlsx")
-states <- read.csv("/Users/danagoin/Documents/Research projects/TWFE/data/state-abbrev.csv")
+#df_e <- read_xlsx("/Users/danagoin/Documents/Research projects/TWFE/data/ACA-expansion.xlsx")
+df_e <- read_xlsx("../TWFE/ACA-expansion.xlsx")
+#states <- read.csv("/Users/danagoin/Documents/Research projects/TWFE/data/state-abbrev.csv")
+states <- read.csv("../TWFE/state-abbrev.csv")
 states <- states %>% rename(State = Name, MRSTATEPSTL = Postal.Code)
 df_e <- left_join(df_e, states, by="State")
 
@@ -30,6 +33,7 @@ df_ptb <- left_join(df_ptb, df_e, by="MRSTATEPSTL")
 # define month 
 df_ptb <- df_ptb %>% mutate(month = as.POSIXct(paste0(year,"-",DOB_MM,"-01"), format="%Y-%m-%d"))
 
+num_months <- 12 * (2016 - 2011 + 1)
 
 # Alaska, Massachusetts, Minnesota, Mississippi, and Virginia have fewer observations because they implemented revised birth certificate later
 # don't want to include this type of heterogeneity at this point, so add more data for them 
@@ -40,7 +44,7 @@ d1 <- data.frame(MRSTATEPSTL = "AK", DOB_MM = NA, ptb_prop = NA, ptb_prop2 = NA,
                  Census_Region = "West", State="Alaska", Revised_bcert_year=2013, Expanded_Medicaid=1, 
                  Expansion_Date = as.POSIXct("2015-09-01"), Year_prior_expansion= NA, FPL_early_expansion = NA, 
                  Section_1115_waiver = 0, Expansion_type= "Full", Notes_births = NA, Notes = NA, FIPS = 2, 
-                 month = seq(as.POSIXct("2011-01-01", format="%Y-%m-%d"), by = "month", length.out = 84)) 
+                 month = seq(as.POSIXct("2011-01-01", format="%Y-%m-%d"), by = "month", length.out = num_months)) 
 d1$year <- as.numeric(substr(as.character(d1$month),1,4))
 m_add1 <- d1[!d1$month %in% df_ptb$month[df_ptb$state_name=="Alaska"],]
 
@@ -51,7 +55,7 @@ d2 <- data.frame(MRSTATEPSTL = "MA", DOB_MM = NA, ptb_prop = NA, ptb_prop2 = NA,
                  Expansion_Date = as.POSIXct("2014-01-01"), Year_prior_expansion= as.POSIXct("2006-04-12"), FPL_early_expansion = 150, 
                  Section_1115_waiver = 0, Expansion_type= "Mild", Notes_births = NA, Notes = "Romneycare expanded insurance to low income adults in 2006 (free if < 150%, subsidized for < 300% FPL)", 
                  FIPS = 25, 
-                 month = seq(as.POSIXct("2011-01-01", format="%Y-%m-%d"), by = "month", length.out = 84)) 
+                 month = seq(as.POSIXct("2011-01-01", format="%Y-%m-%d"), by = "month", length.out = num_months)) 
 d2$year <- as.numeric(substr(as.character(d2$month),1,4))
 m_add2 <- d2[!d2$month %in% df_ptb$month[df_ptb$state_name=="Massachusetts"],]
 
@@ -61,7 +65,7 @@ d3 <- data.frame(MRSTATEPSTL = "MN", DOB_MM = NA, ptb_prop = NA, ptb_prop2 = NA,
                  Expansion_Date = as.POSIXct("2014-01-01"), Year_prior_expansion= as.POSIXct("2010-03-01"), FPL_early_expansion = 75, 
                  Section_1115_waiver = 0, Expansion_type= "Substantial", Notes_births = NA, Notes = "Early expansion in 2010 with Medicaid for incomes < 75% FPL and MinnesotaCare for 75-200%", 
                  FIPS = 27, 
-                 month = seq(as.POSIXct("2011-01-01", format="%Y-%m-%d"), by = "month", length.out = 84)) 
+                 month = seq(as.POSIXct("2011-01-01", format="%Y-%m-%d"), by = "month", length.out = num_months)) 
 d3$year <- as.numeric(substr(as.character(d3$month),1,4))
 m_add3 <- d3[!d3$month %in% df_ptb$month[df_ptb$state_name=="Minnesota"],]
 
@@ -72,7 +76,7 @@ d4 <- data.frame(MRSTATEPSTL = "MS", DOB_MM = NA, ptb_prop = NA, ptb_prop2 = NA,
                  Expansion_Date = NA, Year_prior_expansion= NA, FPL_early_expansion = NA, 
                  Section_1115_waiver = 0, Expansion_type= NA, Notes_births = NA, Notes = NA, 
                  FIPS = 28, 
-                 month = seq(as.POSIXct("2011-01-01", format="%Y-%m-%d"), by = "month", length.out = 84)) 
+                 month = seq(as.POSIXct("2011-01-01", format="%Y-%m-%d"), by = "month", length.out = num_months)) 
 d4$year <- as.numeric(substr(as.character(d4$month),1,4))
 m_add4 <- d4[!d4$month %in% df_ptb$month[df_ptb$state_name=="Mississippi"],]
 
@@ -83,23 +87,23 @@ d5 <- data.frame(MRSTATEPSTL = "VA", DOB_MM = NA, ptb_prop = NA, ptb_prop2 = NA,
                  Expansion_Date = as.POSIXct("2019-01-01"), Year_prior_expansion= NA, FPL_early_expansion = NA, 
                  Section_1115_waiver = 0, Expansion_type= NA, Notes_births = NA, Notes = NA, 
                  FIPS = 51, 
-                 month = seq(as.POSIXct("2011-01-01", format="%Y-%m-%d"), by = "month", length.out = 84)) 
+                 month = seq(as.POSIXct("2011-01-01", format="%Y-%m-%d"), by = "month", length.out = num_months)) 
 d5$year <- as.numeric(substr(as.character(d5$month),1,4))
 m_add5 <- d5[!d5$month %in% df_ptb$month[df_ptb$state_name=="Virginia"],]
 
 
-dat <- data.frame(rbind(df_ptb, m_add1, m_add2, m_add3, m_add4, m_add5))
+dat <- data.frame(rbind(df_ptb %>% select(-n), m_add1, m_add2, m_add3, m_add4, m_add5))
 dat <- dat %>% arrange(State, month)
 
 
 # create month indicators from beginning to end of study 
 dat <- dat %>% arrange(FIPS, month)
-dat <- dat %>% group_by(FIPS) %>% mutate(month_ind = 1:84)
+dat <- dat %>% group_by(FIPS) %>% mutate(month_ind = 1:num_months)
 
 # 21 sates expanded Medicaid -- for those that expanded, draw expansion date uniformly in post-period  
 
 # create treatment indicator by month by randomly sampling post-exposure month 
-#dat <- dat %>% group_by(FIPS) %>%  mutate(first_A = ifelse(Expanded_Medicaid==1, sample(37:84, size=1), NA)) 
+#dat <- dat %>% group_by(FIPS) %>%  mutate(first_A = ifelse(Expanded_Medicaid==1, sample(37:num_months, size=1), NA)) 
 dat <- dat %>% group_by(FIPS) %>%  mutate(first_A = ifelse(Expanded_Medicaid==1, sample(c(37,52,65,72), size=1), NA)) 
 
 dat <- dat %>% mutate(A = as.numeric(month_ind>=first_A)) 
@@ -115,7 +119,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print(iteration)
 # create state-level intercept and noise for each state-month 
 dat <- dat %>% group_by(state_name) %>% mutate(intercept = mean(ptb_prop, na.rm=T),
-                                               e_Y = rnorm(n=84, mean=0, sd=sqrt(var(ptb_prop, na.rm=T))), 
+                                               e_Y = rnorm(n=num_months, mean=0, sd=sqrt(var(ptb_prop, na.rm=T))), 
                                                A_time = min(month_ind[which(A==1)]))
 
 dat$A_time[is.infinite(dat$A_time)] <- 0 
@@ -459,7 +463,7 @@ return(overall_result)
 }
 
 
-results_ls <- lapply(1:1000, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02)))
+results_ls <- lapply(1:10, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02)))
 
 results_df <- data.frame(do.call(rbind, results_ls))
 
@@ -484,7 +488,8 @@ results_df_summary <- results_df_summary %>% group_by(parameter, method) %>% sum
                                                                                        bias = mean(bias), 
                                                                                        MSE = mean(MSE))
 
-write.csv(results_df_summary, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_results_summary_PTB_uniform.csv", row.names = F)
+#write.csv(results_df_summary, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_results_summary_PTB_uniform.csv", row.names = F)
+write.csv(results_df_summary, file="../TWFE-simulation/results/twfe_sim_results_summary_PTB_uniform.csv", row.names = F)
 
 # plot results 
 facet_labels <- c(CTE = "Constant treatment effect", HTE = "Heterogeneous treatment effect", DTE.avg = "Average of dynamic treatment effect")
@@ -499,6 +504,7 @@ p1 <- ggplot(results_df_summary %>% filter(parameter %in% c("CTE","HTE","DTE.avg
 
 #p1
 #ggsave(p1, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_coverage_PTB.pdf", width=10)
+ggsave(p1, file="../TWFE-simulation/results/uniform/twfe_sim_coverage_PTB.pdf", width=10)
 
 p2 <- ggplot(results_df_summary %>% filter(parameter %in% c("CTE","HTE","DTE.avg")))  + 
   geom_point(aes(x=method, y=bias, shape=method, color=method), size=5) + theme_bw() + 
@@ -509,6 +515,7 @@ p2 <- ggplot(results_df_summary %>% filter(parameter %in% c("CTE","HTE","DTE.avg
 
 #p2
 #ggsave(p2, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_bias_PTB.pdf", width=10)
+ggsave(p1, file="../TWFE-simulation/results/uniform/twfe_sim_bias_PTB.pdf", width=10)
 
 
 p3 <- ggplot(results_df_summary %>% filter(parameter %in% c("CTE","HTE","DTE.avg"))) + 
@@ -520,6 +527,7 @@ p3 <- ggplot(results_df_summary %>% filter(parameter %in% c("CTE","HTE","DTE.avg
 
 #p3
 #ggsave(p3, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_mse_PTB.pdf", width=10)
+ggsave(p1, file="../TWFE-simulation/results/uniform/twfe_sim_mse_PTB.pdf", width=10)
 
 
 # dynamic effects 
@@ -540,6 +548,24 @@ p4 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.av
   
   
 #p4
+ggsave(p1, file="../TWFE-simulation/results/uniform/twfe_sim_coverage2_PTB.pdf", width=10)
+
+#make sure this works
+p41 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg")),
+              aes(x = time_pt, y = coverage, col = method)) +
+  geom_line(aes(col = method)) +
+  geom_point(aes(col = method)) +
+  geom_vline(xintercept = 0, linetype = 2) +
+  geom_hline(yintercept = 0.95) +
+  scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33"), 
+                     labels=c("group-time \nATT", "ever-treated \ngroup-time ATT","TWFE", "ever-treated \nTWFE")) +
+  labs(y = "Coverage", x = "Method") +
+  theme_bw() + 
+  scale_y_continuous(labels = scales::percent)
+
+p41
+ggsave(p41, file="../TWFE-simulation/results/uniform/twfe_sim_coverage3_PTB.pdf", width=10)
+
 
 # bias
 p5 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg"))) + 
@@ -550,6 +576,23 @@ p5 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.av
   geom_text_repel(aes(x=method, y=bias, label = time_pt)) +  theme(legend.position = "none") 
 
 #p5
+ggsave(p1, file="../TWFE-simulation/results/uniform/twfe_sim_bias2_PTB.pdf", width=10)
+
+p51 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg")),
+              aes(x = time_pt, y = bias, col = method)) +
+  geom_line(aes(col = method)) +
+  geom_point(aes(col = method, pch = method)) +
+  geom_vline(xintercept = 0, linetype = 2) +
+  geom_hline(yintercept = 0) +
+  scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33"), 
+                     labels=c("group-time \nATT", "ever-treated \ngroup-time ATT","TWFE", "ever-treated \nTWFE")) +
+  labs(y = "Bias", x = "Method") +
+  theme_bw() + 
+  scale_y_continuous(labels = scales::percent)
+
+p51
+ggsave(p51, file="../TWFE-simulation/results/uniform/twfe_sim_bias3_PTB.pdf", width=10)
+
 
 # MSE
 p6 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg"))) + 
@@ -560,4 +603,21 @@ p6 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.av
   geom_text_repel(aes(x=method, y=MSE, label = time_pt)) +  theme(legend.position = "none") 
 
 #p6
+ggsave(p1, file="../TWFE-simulation/results/uniform/twfe_sim_mse2_PTB.pdf", width=10)
+
+p61 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg")),
+              aes(x = time_pt, y = MSE, col = method)) +
+  geom_line(aes(col = method)) +
+  geom_point(aes(col = method, pch = method)) +
+  geom_vline(xintercept = 0, linetype = 2) +
+  #geom_hline(yintercept = 0) +
+  scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33"), 
+                     labels=c("group-time \nATT", "ever-treated \ngroup-time ATT","TWFE", "ever-treated \nTWFE")) +
+  labs(y = "Mean squared error", x = "Method") +
+  theme_bw() + 
+  scale_y_continuous(labels = scales::percent)
+
+p61
+ggsave(p61, file="../TWFE-simulation/results/uniform/twfe_sim_mse3_PTB.pdf", width=10)
+
 

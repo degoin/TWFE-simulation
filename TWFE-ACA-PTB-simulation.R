@@ -441,7 +441,7 @@ return(overall_result)
 }
 
 
-results_ls <- lapply(1:10, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.02, -0.01), DTE = c(-0.01, -0.015, -0.02)))
+system.time(results_ls <- lapply(1:1000, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.02, -0.01), DTE = c(-0.01, -0.015, -0.02))))
 
 results_df <- data.frame(do.call(rbind, results_ls))
 
