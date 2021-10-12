@@ -66,7 +66,7 @@ ggsave(p4, file="../TWFE-simulation/results/twfe_sim_coverage2_PTB.pdf", width=1
 p41 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg")),
               aes(x = time_pt, y = coverage, col = method)) +
   geom_line(aes(col = method)) +
-  geom_point(aes(col = method)) +
+  geom_point(aes(col = method, pch = method)) +
   geom_vline(xintercept = 0, linetype = 2) +
   geom_hline(yintercept = 0.95) +
   scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33"), 

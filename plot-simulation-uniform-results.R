@@ -27,7 +27,7 @@ p2 <- ggplot(results_df_summary %>% filter(parameter %in% c("CTE","HTE","DTE.avg
 
 #p2
 #ggsave(p2, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_bias_PTB.pdf", width=10)
-ggsave(p1, file="../TWFE-simulation/results/uniform/twfe_sim_bias_PTB.pdf", width=10)
+ggsave(p2, file="../TWFE-simulation/results/uniform/twfe_sim_bias_PTB.pdf", width=10)
 
 
 p3 <- ggplot(results_df_summary %>% filter(parameter %in% c("CTE","HTE","DTE.avg"))) + 
@@ -39,7 +39,7 @@ p3 <- ggplot(results_df_summary %>% filter(parameter %in% c("CTE","HTE","DTE.avg
 
 #p3
 #ggsave(p3, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_mse_PTB.pdf", width=10)
-ggsave(p1, file="../TWFE-simulation/results/uniform/twfe_sim_mse_PTB.pdf", width=10)
+ggsave(p3, file="../TWFE-simulation/results/uniform/twfe_sim_mse_PTB.pdf", width=10)
 
 
 # dynamic effects 
@@ -60,7 +60,7 @@ p4 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.av
 
 
 #p4
-ggsave(p1, file="../TWFE-simulation/results/uniform/twfe_sim_coverage2_PTB.pdf", width=10)
+ggsave(p4, file="../TWFE-simulation/results/uniform/twfe_sim_coverage2_PTB.pdf", width=10)
 
 #make sure this works
 p41 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg")),
@@ -88,7 +88,7 @@ p5 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.av
   geom_text_repel(aes(x=method, y=bias, label = time_pt)) +  theme(legend.position = "none") 
 
 #p5
-ggsave(p1, file="../TWFE-simulation/results/uniform/twfe_sim_bias2_PTB.pdf", width=10)
+ggsave(p5, file="../TWFE-simulation/results/uniform/twfe_sim_bias2_PTB.pdf", width=10)
 
 p51 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg")),
               aes(x = time_pt, y = bias, col = method)) +
@@ -115,7 +115,7 @@ p6 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.av
   geom_text_repel(aes(x=method, y=MSE, label = time_pt)) +  theme(legend.position = "none") 
 
 #p6
-ggsave(p1, file="../TWFE-simulation/results/uniform/twfe_sim_mse2_PTB.pdf", width=10)
+ggsave(p6, file="../TWFE-simulation/results/uniform/twfe_sim_mse2_PTB.pdf", width=10)
 
 p61 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg")),
               aes(x = time_pt, y = MSE, col = method)) +
