@@ -1,9 +1,10 @@
-#rm(list=ls())
+rm(list=ls())
 library(readxl)
 library(tidyverse)
 library(did)
 library(sandwich)
 library(ggrepel)
+library(staggered)
 
 set.seed(15295632)
 
@@ -94,7 +95,7 @@ d5$year <- as.numeric(substr(as.character(d5$month),1,4))
 m_add5 <- d5[!d5$month %in% df_ptb$month[df_ptb$state_name=="Virginia"],]
 
 
-dat <- data.frame(rbind(df_ptb %>% select(-n), m_add1, m_add2, m_add3, m_add4, m_add5))
+dat <- data.frame(rbind(df_ptb %>% dplyr::select(-n), m_add1, m_add2, m_add3, m_add4, m_add5))
 dat <- dat %>% arrange(State, month)
 
 # create treatment indicator by month 
@@ -175,10 +176,15 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   #sqrt(m1_var["A","A"])
   #sqrt(test["A","A"])
   
-  # estimate effects using group-time ATT
+  # estimate effects using group-time ATT from Callaway and Sant'Anna
   m2 <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat, anticipation=0)
   m2_ag <- aggte(m2, type="simple")
   #m2_ag$overall.att
+  
+  # estimate effects using Sun and Abraham approach 
+  dat <- dat %>% mutate(A_time_sa = ifelse(A_time!=0, A_time, Inf))
+  m3 <- staggered_sa(df = dat, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "simple")
+  
   
   # TWFE if you only include those who eventually get the intervention 
   dat_i <- dat %>% filter(ever_A==1)
@@ -200,6 +206,10 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   m2_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_i, anticipation=0, control_group = "notyettreated")
   m2_ea_ag <- aggte(m2_ea, type="simple")
   
+  # estimate effects using Sun and Abraham approach among those who are not yet treated 
+  # I don't think this will work because it drops the times that only have 1 treated unit, which are the not-yet-treated units 
+  #m3_ea <- staggered_sa(df = dat_i, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "simple")
+  
   
   # define truth 
   cte_truth <- CTE
@@ -215,6 +225,9 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                              cbind(estimator = "group.time.ATT", result = m2_ag$overall.att, 
                                    lb = m2_ag$overall.att - 1.96*m2_ag$overall.se, 
                                    ub = m2_ag$overall.att + 1.96*m2_ag$overall.se), 
+                             cbind(estimator = "staggered.SA", result = m3$estimate, 
+                                   lb = m3$estimate - 1.96*m3$se_neyman, 
+                                   ub = m3$estimate + 1.96*m3$se_neyman), 
                              cbind(estimator = "TWFE.ever.adopted", result = summary(m1_i)$coefficients["A", "Estimate"], 
                                    lb = summary(m1_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_var["A","A"]), 
                                    ub = summary(m1_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"])), 
@@ -255,8 +268,12 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   # estimate effects using group-time ATT
   m2_hte <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_hte, anticipation=0)
   m2_hte_ag <- aggte(m2_hte, type="group")
-  
   #ggdid(m2_hte_ag)
+  
+  
+  # estimate effects using Sun and Abraham approach 
+  m3_hte <- staggered_sa(df = dat_hte, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "simple")
+  
   
   # TWFE if you only include those who eventually get the intervention 
   dat_hte_i <- dat_hte %>% filter(ever_A==1)
@@ -294,7 +311,10 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                                    ub = summary(m1b_hte)$coefficients["ever_A:post_policy", "Estimate"] + 1.96*sqrt(m1b_hte_var["ever_A:post_policy","ever_A:post_policy"])), 
                              cbind(estimator = "group.time.ATT", result = m2_hte_ag$overall.att, 
                                    lb = m2_hte_ag$overall.att - 1.96*m2_hte_ag$overall.se, 
-                                   ub = m2_hte_ag$overall.att + 1.96*m2_hte_ag$overall.se)))
+                                   ub = m2_hte_ag$overall.att + 1.96*m2_hte_ag$overall.se), 
+                            cbind(estimator = "staggered.SA", result = m3_hte$estimate, 
+                                   lb = m3_hte$estimate - 1.96*m3_hte$se_neyman, 
+                                   ub = m3_hte$estimate + 1.96*m3_hte$se_neyman)))
   
   
   df_hte_ea <-  data.frame(rbind(cbind(estimator="truth", result=hte_truth_ea, lb=NA, ub=NA), 
@@ -475,7 +495,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   twfe <- data.frame(cbind(result = summary(m1_dte_yr)$coefficients))
   
   # keep only coefficients that define effects of interest
-  twfe <- twfe %>% filter(grepl("time_since_A", rownames(twfe))) %>% rename(result = Estimate, SE = Std..Error) %>% select(result, SE)
+  twfe <- twfe %>% filter(grepl("time_since_A", rownames(twfe))) %>% rename(result = Estimate, SE = Std..Error) %>% dplyr::select(result, SE)
   
   # calculate upper and lower 95% confidence interval bounds
   twfe <- twfe %>% mutate(lb = result - 1.96*SE, ub = result + 1.96*SE, estimator="TWFE", time=(min(dat_dte$time_since_A, na.rm=T)+1):max(dat_dte$time_since_A, na.rm=T)) %>% dplyr::select(estimator, time, result, lb, ub)
@@ -495,7 +515,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   twfe_ea <- data.frame(cbind(result = summary(m1_dte_yr_i)$coefficients))
   
   # keep only coefficients that define effects of interest
-  twfe_ea <- twfe_ea %>% filter(grepl("time_since_A", rownames(twfe_ea))) %>% rename(result = Estimate, SE = Std..Error) %>% select(result, SE)
+  twfe_ea <- twfe_ea %>% filter(grepl("time_since_A", rownames(twfe_ea))) %>% rename(result = Estimate, SE = Std..Error) %>% dplyr::select(result, SE)
   
   # calculate upper and lower 95% confidence interval bounds
   twfe_ea <- twfe_ea %>% mutate(lb = result - 1.96*SE, ub = result + 1.96*SE, estimator="TWFE.ever.adopted", time=(min(dat_dte$time_since_A, na.rm=T)+1):max(dat_dte$time_since_A, na.rm=T)) %>% dplyr::select(estimator, time, result, lb, ub)
@@ -515,7 +535,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   df_dyn$type <- paste0("DTE.",df_dyn$time)
   
   # make wide so results can be stacked 
-  df_dyn_wide <- df_dyn %>% select(-time) %>%  pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub))
+  df_dyn_wide <- df_dyn %>% dplyr::select(-time) %>%  pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub))
   
   # output overall results
   overall_result <- data.frame(cbind(df_cte_wide, df_hte_wide, df_hte_ea_wide, df_dte_avg_wide, df_dte_avg_ea_wide, df_dyn_wide))
