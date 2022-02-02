@@ -311,46 +311,56 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   hte_truth_ea <- (HTE[1]*length(dat_hte_i$HTE[dat_hte_i$A_time<40 & dat_hte_i$A_time==dat_hte_i$month_ind]) + HTE[2]*length(dat_hte_i$HTE[dat_hte_i$A_time>=40 & dat_hte_i$A_time<max(m2_hte$group) & dat_hte_i$A_time==dat_hte_i$month_ind]))/length(unique(dat_hte_i$State[dat_hte_i$ever_A==1 & dat_hte_i$A_time<max(m2_hte$group)]))
   
   # combine results
-  df_hte <- data.frame(rbind(cbind(estimator="truth", result=hte_truth, lb = NA, ub = NA), 
+  df_hte <- data.frame(rbind(cbind(estimator="truth", result=hte_truth, lb = NA, ub = NA, power=NA), 
                              cbind(estimator = "TWFE", result = summary(m1_hte)$coefficients["A", "Estimate"], 
                                    lb = summary(m1_hte)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_hte_var["A","A"]), 
-                                   ub = summary(m1_hte)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var["A","A"])), 
+                                   ub = summary(m1_hte)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var["A","A"]), 
+                                   power = as.numeric(summary(m1_hte)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var["A","A"])<0)), 
                              cbind(estimator = "TWFE.alt", result = summary(m1b_hte)$coefficients["ever_A:post_policy", "Estimate"], 
                                    lb = summary(m1b_hte)$coefficients["ever_A:post_policy", "Estimate"] - 1.96*sqrt(m1b_hte_var["ever_A:post_policy","ever_A:post_policy"]), 
-                                   ub = summary(m1b_hte)$coefficients["ever_A:post_policy", "Estimate"] + 1.96*sqrt(m1b_hte_var["ever_A:post_policy","ever_A:post_policy"])), 
+                                   ub = summary(m1b_hte)$coefficients["ever_A:post_policy", "Estimate"] + 1.96*sqrt(m1b_hte_var["ever_A:post_policy","ever_A:post_policy"]), 
+                                   power = as.numeric(summary(m1b_hte)$coefficients["ever_A:post_policy", "Estimate"] + 1.96*sqrt(m1b_hte_var["ever_A:post_policy","ever_A:post_policy"])<0)), 
                              cbind(estimator = "group.time.ATT", result = m2_hte_ag$overall.att, 
                                    lb = m2_hte_ag$overall.att - 1.96*m2_hte_ag$overall.se, 
-                                   ub = m2_hte_ag$overall.att + 1.96*m2_hte_ag$overall.se), 
+                                   ub = m2_hte_ag$overall.att + 1.96*m2_hte_ag$overall.se, 
+                                   power = as.numeric(m2_hte_ag$overall.att + 1.96*m2_hte_ag$overall.se<0)), 
                             cbind(estimator = "staggered.SA", result = m3_hte$estimate, 
                                    lb = m3_hte$estimate - 1.96*m3_hte$se_neyman, 
-                                   ub = m3_hte$estimate + 1.96*m3_hte$se_neyman)))
+                                   ub = m3_hte$estimate + 1.96*m3_hte$se_neyman, 
+                                  power = as.numeric(m3_hte$estimate + 1.96*m3_hte$se_neyman<0))))
   
   
-  df_hte_ea <-  data.frame(rbind(cbind(estimator="truth", result=hte_truth_ea, lb=NA, ub=NA), 
+  df_hte_ea <-  data.frame(rbind(cbind(estimator="truth", result=hte_truth_ea, lb=NA, ub=NA, power=NA), 
                                  cbind(estimator = "TWFE.ever.adopted", result = summary(m1_hte_i)$coefficients["A", "Estimate"], 
                                        lb = summary(m1_hte_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_hte_var_i["A","A"]), 
-                                       ub = summary(m1_hte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var_i["A","A"])), 
+                                       ub = summary(m1_hte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var_i["A","A"]), 
+                                       power = as.numeric(summary(m1_hte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var_i["A","A"])<0)), 
                                  cbind(estimator = "TWFE.alt.ever.adopted", result = summary(m1b_hte_i)$coefficients["post_policy", "Estimate"], 
                                        lb = summary(m1b_hte_i)$coefficients["post_policy", "Estimate"] - 1.96*sqrt(m1b_hte_var_i["post_policy","post_policy"]), 
-                                       ub = summary(m1b_hte_i)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m1b_hte_var_i["post_policy","post_policy"])), 
+                                       ub = summary(m1b_hte_i)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m1b_hte_var_i["post_policy","post_policy"]), 
+                                       power = as.numeric(summary(m1b_hte_i)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m1b_hte_var_i["post_policy","post_policy"])<0)), 
                                  cbind(estimator = "group.time.ATT.ever.adopted", result = m2_hte_ea_ag$overall.att, 
                                        lb = m2_hte_ea_ag$overall.att - 1.96*m2_hte_ea_ag$overall.se, 
-                                       ub = m2_hte_ea_ag$overall.att + 1.96*m2_hte_ea_ag$overall.se)))
+                                       ub = m2_hte_ea_ag$overall.att + 1.96*m2_hte_ea_ag$overall.se, 
+                                       power = as.numeric(m2_hte_ea_ag$overall.att + 1.96*m2_hte_ea_ag$overall.se<0))))
   
   
   df_hte$result <- as.numeric(df_hte$result)
   df_hte$lb <- as.numeric(df_hte$lb)
   df_hte$ub <- as.numeric(df_hte$ub)
+  df_hte$power <- as.numeric(df_hte$power)
   df_hte$type <- "HTE"
   
   df_hte_ea$result <- as.numeric(df_hte_ea$result)
   df_hte_ea$lb <- as.numeric(df_hte_ea$lb)
   df_hte_ea$ub <- as.numeric(df_hte_ea$ub)
+  df_hte_ea$power <- as.numeric(df_hte_ea$power)
+  
   df_hte_ea$type <- "HTE.EA"
   
   # make wide so results can be stacked
-  df_hte_wide <- df_hte %>% pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub))
-  df_hte_ea_wide <- df_hte_ea %>% pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub))
+  df_hte_wide <- df_hte %>% pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub, power))
+  df_hte_ea_wide <- df_hte_ea %>% pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub, power))
   
   ##############################################################################################################################
   # DYNAMIC TREATMENT EFFECT 
@@ -584,6 +594,8 @@ results_df_summary <- results_df_calc %>% group_by(parameter, method) %>% summar
                                                                                        bias = mean(bias), 
                                                                                        MSE = mean(MSE), 
                                                                                        power = mean(power))
+
+View(results_df_summary %>% filter(parameter %in% c("CTE","HTE")))
 
 #write.csv(results_df_summary, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_results_summary_PTB.csv", row.names = F)
 write.csv(results_df_summary, file="../TWFE-simulation/results/twfe_sim_results_summary_PTB.csv", row.names = F)
