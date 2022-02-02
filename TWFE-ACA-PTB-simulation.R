@@ -424,44 +424,52 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                          DTE[3]*sum(dat_dte_i$time_since_A>=24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte$group), na.rm=T))/sum(dat_dte_i$time_since_A>=0 & dat_dte_i$A_time<max(m2_dte$group), na.rm=T)
   
   # combine results 
-  df_dte_avg <- data.frame(rbind(cbind(estimator="truth", result=dte_truth_avg, lb = NA, ub = NA), 
+  df_dte_avg <- data.frame(rbind(cbind(estimator="truth", result=dte_truth_avg, lb = NA, ub = NA, power=NA), 
                                  cbind(estimator = "TWFE", result = summary(m1_dte)$coefficients["A", "Estimate"], 
                                        lb = summary(m1_dte)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_dte_var["A","A"]), 
-                                       ub = summary(m1_dte)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var["A","A"])), 
+                                       ub = summary(m1_dte)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var["A","A"]), 
+                                       power = as.numeric(summary(m1_dte)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var["A","A"])<0)), 
                                  cbind(estimator = "TWFE.alt", result = summary(m1b_dte)$coefficients["ever_A:post_policy", "Estimate"], 
                                        lb = summary(m1b_dte)$coefficients["ever_A:post_policy", "Estimate"] - 1.96*sqrt(m1b_dte_var["ever_A:post_policy","ever_A:post_policy"]), 
-                                       ub = summary(m1b_dte)$coefficients["ever_A:post_policy", "Estimate"] + 1.96*sqrt(m1b_dte_var["ever_A:post_policy","ever_A:post_policy"])), 
+                                       ub = summary(m1b_dte)$coefficients["ever_A:post_policy", "Estimate"] + 1.96*sqrt(m1b_dte_var["ever_A:post_policy","ever_A:post_policy"]), 
+                                       power = as.numeric(summary(m1b_dte)$coefficients["ever_A:post_policy", "Estimate"] + 1.96*sqrt(m1b_dte_var["ever_A:post_policy","ever_A:post_policy"])<0)), 
                                  cbind(estimator = "group.time.ATT", result = m2_dte_ag$overall.att, 
                                        lb = m2_dte_ag$overall.att - 1.96*m2_dte_ag$overall.se, 
-                                       ub = m2_dte_ag$overall.att + 1.96*m2_dte_ag$overall.se))) 
+                                       ub = m2_dte_ag$overall.att + 1.96*m2_dte_ag$overall.se, 
+                                       power = as.numeric(m2_dte_ag$overall.att + 1.96*m2_dte_ag$overall.se<0)))) 
   
-  df_dte_avg_ea <- data.frame(rbind(cbind(estimator="truth", result=dte_truth_avg_ea, lb = NA, ub = NA), 
+  df_dte_avg_ea <- data.frame(rbind(cbind(estimator="truth", result=dte_truth_avg_ea, lb = NA, ub = NA, power=NA), 
                                     cbind(estimator = "TWFE.ever.adopted", result = summary(m1_dte_i)$coefficients["A", "Estimate"], 
                                           lb = summary(m1_dte_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_dte_var_i["A","A"]), 
-                                          ub = summary(m1_dte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var_i["A","A"])), 
+                                          ub = summary(m1_dte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var_i["A","A"]), 
+                                          power = as.numeric(summary(m1_dte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var_i["A","A"])<0)), 
                                     cbind(estimator = "TWFE.alt.ever.adopted", result = summary(m1b_dte_i)$coefficients["post_policy", "Estimate"], 
                                           lb = summary(m1b_dte_i)$coefficients["post_policy", "Estimate"] - 1.96*sqrt(m1b_dte_var_i["post_policy","post_policy"]), 
-                                          ub = summary(m1b_dte_i)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m1b_dte_var_i["post_policy","post_policy"])), 
+                                          ub = summary(m1b_dte_i)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m1b_dte_var_i["post_policy","post_policy"]), 
+                                          power = as.numeric(summary(m1b_dte_i)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m1b_dte_var_i["post_policy","post_policy"])<0)), 
                                     cbind(estimator = "group.time.ATT.ever.adopted", result = m2_dte_ea_ag$overall.att, 
                                           lb = m2_dte_ea_ag$overall.att - 1.96*m2_dte_ea_ag$overall.se, 
-                                          ub = m2_dte_ea_ag$overall.att + 1.96*m2_dte_ea_ag$overall.se)))
+                                          ub = m2_dte_ea_ag$overall.att + 1.96*m2_dte_ea_ag$overall.se, 
+                                          power = as.numeric(m2_dte_ea_ag$overall.att + 1.96*m2_dte_ea_ag$overall.se<0))))
   
   
   df_dte_avg$result <- as.numeric(df_dte_avg$result)
   df_dte_avg$lb <- as.numeric(df_dte_avg$lb)
   df_dte_avg$ub <- as.numeric(df_dte_avg$ub)
+  df_dte_avg$power <- as.numeric(df_dte_avg$power)
   
   df_dte_avg$type <- "DTE.avg"
   
   df_dte_avg_ea$result <- as.numeric(df_dte_avg_ea$result)
   df_dte_avg_ea$lb <- as.numeric(df_dte_avg_ea$lb)
   df_dte_avg_ea$ub <- as.numeric(df_dte_avg_ea$ub)
+  df_dte_avg_ea$power <- as.numeric(df_dte_avg_ea$power)
   
   df_dte_avg_ea$type <- "DTE.avg.EA"
   
   # make wide so results can be stacked 
-  df_dte_avg_wide <- df_dte_avg %>% pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub))
-  df_dte_avg_ea_wide <- df_dte_avg_ea %>% pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub))
+  df_dte_avg_wide <- df_dte_avg %>% pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub, power))
+  df_dte_avg_ea_wide <- df_dte_avg_ea %>% pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub, power))
   
   ##############################################################################################################################
   # YEARLY EFFECT IN THE POST-PERIOD  
@@ -506,7 +514,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                           result=c(rep(0,-1*min(dat_dte$time_since_A, na.rm=T) - 1), 
                                    rep(DTE[1], 12), 
                                    rep(DTE[2], 12), 
-                                   rep(DTE[3], max(dat_dte$time_since_A, na.rm=T) - 23)), lb=NA, ub=NA)
+                                   rep(DTE[3], max(dat_dte$time_since_A, na.rm=T) - 23)), lb=NA, ub=NA, power=NA)
   
   # twfe -- save estimates from model and get standard errors from sandwich variance matrix 
   # note: sandwich variance matrix is giving smaller estimates of variance than we're getting from the model 
@@ -517,7 +525,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   twfe <- twfe %>% filter(grepl("time_since_A", rownames(twfe))) %>% rename(result = Estimate, SE = Std..Error) %>% dplyr::select(result, SE)
   
   # calculate upper and lower 95% confidence interval bounds
-  twfe <- twfe %>% mutate(lb = result - 1.96*SE, ub = result + 1.96*SE, estimator="TWFE", time=(min(dat_dte$time_since_A, na.rm=T)+1):max(dat_dte$time_since_A, na.rm=T)) %>% dplyr::select(estimator, time, result, lb, ub)
+  twfe <- twfe %>% mutate(lb = result - 1.96*SE, ub = result + 1.96*SE, power = as.numeric(result + 1.96*SE <0), estimator="TWFE", time=(min(dat_dte$time_since_A, na.rm=T)+1):max(dat_dte$time_since_A, na.rm=T)) %>% dplyr::select(estimator, time, result, lb, ub, power)
   
   
   # group-time ATT 
@@ -528,6 +536,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   gt$lb <- gt$result - gt$c*gt$SE
   gt$ub <- gt$result + gt$c*gt$SE
   gt$SE <- gt$c <- NULL 
+  gt$power <- as.numeric(gt$ub<0)
   
   # TWFE for ever adopted 
   
@@ -537,7 +546,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   twfe_ea <- twfe_ea %>% filter(grepl("time_since_A", rownames(twfe_ea))) %>% rename(result = Estimate, SE = Std..Error) %>% dplyr::select(result, SE)
   
   # calculate upper and lower 95% confidence interval bounds
-  twfe_ea <- twfe_ea %>% mutate(lb = result - 1.96*SE, ub = result + 1.96*SE, estimator="TWFE.ever.adopted", time=(min(dat_dte$time_since_A, na.rm=T)+1):max(dat_dte$time_since_A, na.rm=T)) %>% dplyr::select(estimator, time, result, lb, ub)
+  twfe_ea <- twfe_ea %>% mutate(lb = result - 1.96*SE, ub = result + 1.96*SE, power = as.numeric(result + 1.96*SE <0), estimator="TWFE.ever.adopted", time=(min(dat_dte$time_since_A, na.rm=T)+1):max(dat_dte$time_since_A, na.rm=T)) %>% dplyr::select(estimator, time, result, lb, ub, power)
   
   
   # group-time ATT for ever adopted
@@ -548,13 +557,14 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   gt_ea$lb <- gt_ea$result - gt_ea$c*gt_ea$SE
   gt_ea$ub <- gt_ea$result + gt_ea$c*gt_ea$SE
   gt_ea$SE <- gt_ea$c <- NULL 
+  gt_ea$power <- as.numeric(gt_ea$ub <0)
   
   # combine all dynamic results
   df_dyn <- data.frame(rbind(dte_truth, twfe, gt, twfe_ea, gt_ea))
   df_dyn$type <- paste0("DTE.",df_dyn$time)
   
   # make wide so results can be stacked 
-  df_dyn_wide <- df_dyn %>% dplyr::select(-time) %>%  pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub))
+  df_dyn_wide <- df_dyn %>% dplyr::select(-time) %>%  pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub, power))
   
   # output overall results
   overall_result <- data.frame(cbind(df_cte_wide, df_hte_wide, df_hte_ea_wide, df_dte_avg_wide, df_dte_avg_ea_wide, df_dyn_wide))
@@ -594,6 +604,8 @@ results_df_summary <- results_df_calc %>% group_by(parameter, method) %>% summar
                                                                                        bias = mean(bias), 
                                                                                        MSE = mean(MSE), 
                                                                                        power = mean(power))
+
+View(results_df_summary)
 
 View(results_df_summary %>% filter(parameter %in% c("CTE","HTE")))
 
