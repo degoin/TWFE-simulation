@@ -11,7 +11,6 @@ set.seed(15295632)
 # combine all years of state-month PTB rates into one data frame
 df_ls <- list()
 for(i in 2011:2016) {
-  #df_ls[[i - 2010]] <- read.csv(paste0("/Users/danagoin/Documents/Research projects/TWFE/data/state-month-ptb-2-",i,".csv"))
   df_ls[[i - 2010]] <- read.csv(paste0("./data/simulation-data/after-exclusions/state-month-ptb-2-",i,".csv"))
   if (i >2015) {
     df_ls[[i-2010]] <- df_ls[[i-2010]] %>% rename(MRSTATEPSTL = MRSTATE) 
@@ -21,9 +20,7 @@ for(i in 2011:2016) {
 df_ptb <- do.call(rbind, df_ls)
 
 # merge on Medicaid expansion dates 
-#df_e <- read_xlsx("/Users/danagoin/Documents/Research projects/TWFE/data/ACA-expansion.xlsx")
 df_e <- read_xlsx("./data/ACA-expansion.xlsx")
-#states <- read.csv("/Users/danagoin/Documents/Research projects/TWFE/data/state-abbrev.csv")
 states <- read.csv("./data/state-abbrev.csv")
 states <- states %>% rename(State = Name, MRSTATEPSTL = Postal.Code)
 df_e <- left_join(df_e, states, by = "State")
@@ -572,7 +569,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
 }
 
 
-system.time(results_ls <- lapply(1:5, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.02, -0.01), DTE = c(-0.01, -0.015, -0.02))))
+system.time(results_ls <- lapply(1:100, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.02, -0.01), DTE = c(-0.01, -0.015, -0.02))))
 
 results_df <- data.frame(do.call(rbind, results_ls))
 
@@ -605,9 +602,5 @@ results_df_summary <- results_df_calc %>% group_by(parameter, method) %>% summar
                                                                                        MSE = mean(MSE), 
                                                                                        power = mean(power))
 
-View(results_df_summary)
 
-View(results_df_summary %>% filter(parameter %in% c("CTE","HTE")))
-
-#write.csv(results_df_summary, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_results_summary_PTB.csv", row.names = F)
 write.csv(results_df_summary, file="../TWFE-simulation/results/twfe_sim_results_summary_PTB.csv", row.names = F)
