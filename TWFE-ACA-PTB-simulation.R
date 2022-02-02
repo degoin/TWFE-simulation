@@ -215,36 +215,45 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   cte_truth <- CTE
   
   # combine results
-  df_cte <- data.frame(rbind(cbind(estimator = "truth", result = cte_truth, lb = NA, ub = NA), 
+  df_cte <- data.frame(rbind(cbind(estimator = "truth", result = cte_truth, lb = NA, ub = NA, power=NA), 
                              cbind(estimator = "TWFE", result = summary(m1)$coefficients["A", "Estimate"], 
                                    lb = summary(m1)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_var["A","A"]), 
-                                   ub = summary(m1)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"])), 
+                                   ub = summary(m1)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"]), 
+                                   power = as.numeric(summary(m1)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"])<0)), 
                              cbind(estimator = "TWFE.alt", result = summary(m1b)$coefficients["ever_A:post_policy", "Estimate"], 
                                    lb = summary(m1b)$coefficients["ever_A:post_policy", "Estimate"] - 1.96*sqrt(m1b_var["ever_A:post_policy","ever_A:post_policy"]), 
-                                   ub = summary(m1b)$coefficients["ever_A:post_policy", "Estimate"] + 1.96*sqrt(m1b_var["ever_A:post_policy","ever_A:post_policy"])), 
+                                   ub = summary(m1b)$coefficients["ever_A:post_policy", "Estimate"] + 1.96*sqrt(m1b_var["ever_A:post_policy","ever_A:post_policy"]), 
+                                   power = as.numeric(summary(m1b)$coefficients["ever_A:post_policy", "Estimate"] + 1.96*sqrt(m1b_var["ever_A:post_policy","ever_A:post_policy"])<0)), 
                              cbind(estimator = "group.time.ATT", result = m2_ag$overall.att, 
                                    lb = m2_ag$overall.att - 1.96*m2_ag$overall.se, 
-                                   ub = m2_ag$overall.att + 1.96*m2_ag$overall.se), 
+                                   ub = m2_ag$overall.att + 1.96*m2_ag$overall.se, 
+                                   power = as.numeric(m2_ag$overall.att + 1.96*m2_ag$overall.se<0)), 
                              cbind(estimator = "staggered.SA", result = m3$estimate, 
                                    lb = m3$estimate - 1.96*m3$se_neyman, 
-                                   ub = m3$estimate + 1.96*m3$se_neyman), 
+                                   ub = m3$estimate + 1.96*m3$se_neyman, 
+                                   power = as.numeric(m3$estimate + 1.96*m3$se_neyman<0)), 
                              cbind(estimator = "TWFE.ever.adopted", result = summary(m1_i)$coefficients["A", "Estimate"], 
                                    lb = summary(m1_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_var["A","A"]), 
-                                   ub = summary(m1_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"])), 
+                                   ub = summary(m1_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"]), 
+                                   power = as.numeric(summary(m1_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"])<0)), 
                              cbind(estimator = "TWFE.alt.ever.adopted", result = summary(m1b_i)$coefficients["post_policy", "Estimate"], 
                                    lb = summary(m1b_i)$coefficients["post_policy", "Estimate"] - 1.96*sqrt(m1b_var["post_policy","post_policy"]), 
-                                   ub = summary(m1b_i)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m1b_var["post_policy","post_policy"])), 
+                                   ub = summary(m1b_i)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m1b_var["post_policy","post_policy"]), 
+                                   power = as.numeric(summary(m1b_i)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m1b_var["post_policy","post_policy"])<0)), 
                              cbind(estimator = "group.time.ATT.ever.adopted", result = m2_ea_ag$overall.att, 
                                    lb = m2_ea_ag$overall.att - 1.96*m2_ea_ag$overall.se, 
-                                   ub = m2_ea_ag$overall.att + 1.96*m2_ea_ag$overall.se)))
+                                   ub = m2_ea_ag$overall.att + 1.96*m2_ea_ag$overall.se, 
+                                   power = as.numeric(m2_ea_ag$overall.att + 1.96*m2_ea_ag$overall.se<0))))
   
   df_cte$result <- as.numeric(df_cte$result)
   df_cte$lb <- as.numeric(df_cte$lb)
   df_cte$ub <- as.numeric(df_cte$ub)
+  df_cte$power <- as.numeric(df_cte$power)
+  
   df_cte$type <- "CTE"
   
   # make wide so results can be stacked
-  df_cte_wide <- df_cte %>% pivot_wider(names_from=c(type,estimator), values_from=c(result, lb, ub))
+  df_cte_wide <- df_cte %>% pivot_wider(names_from=c(type,estimator), values_from=c(result, lb, ub, power))
   
   
   ##############################################################################################################################
@@ -543,7 +552,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
 }
 
 
-system.time(results_ls <- lapply(1:20, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.02, -0.01), DTE = c(-0.01, -0.015, -0.02))))
+system.time(results_ls <- lapply(1:5, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.02, -0.01), DTE = c(-0.01, -0.015, -0.02))))
 
 results_df <- data.frame(do.call(rbind, results_ls))
 
@@ -553,21 +562,28 @@ results_df <- data.frame(do.call(rbind, results_ls))
 results_df_calc <- results_df %>% pivot_longer(cols= everything(), names_to=c("estimand", "parameter", "method"), names_sep="_")
 results_df_calc <- results_df_calc %>% group_by(estimand, parameter, method) %>% mutate(iteration = row_number())
 
-results_df_calc <- results_df_calc %>% group_by(iteration, parameter) %>% mutate(truth = value[estimand=="result" & method=="truth"])  
 
-results_df_calc <- results_df_calc %>% group_by(iteration, parameter, method) %>% mutate(coverage = as.numeric(value[estimand=="lb"]<=truth & value[estimand=="ub"]>=truth), 
-                                                                                                bias = value[estimand=="result"] - truth, 
-                                                                                                MSE = (value[estimand=="result"] - truth)^2)
+results_df_calc <- results_df_calc %>% pivot_wider(id_cols = c(estimand, parameter, method, iteration), names_from=estimand, values_from=value)
 
 
-results_df_summary <- results_df_calc %>% filter(estimand=="result" & method!="truth")
+results_df_calc <- results_df_calc %>% group_by(iteration, parameter) %>% mutate(truth = result[method=="truth"])  
+
+
+results_df_calc <- results_df_calc %>%  mutate(coverage = as.numeric(lb<=truth & ub>=truth),  
+                                               bias = result - truth, 
+                                               MSE = (result - truth)^2)
+
+
+results_df_calc <- results_df_calc %>% filter(method!="truth")
 # rename parameters so they alls how up on same plot 
-results_df_summary$parameter[results_df_summary$parameter=="HTE.EA"] <-  "HTE"
-results_df_summary$parameter[results_df_summary$parameter=="DTE.avg.EA"] <-  "DTE.avg"
+results_df_calc$parameter[results_df_calc$parameter=="HTE.EA"] <-  "HTE"
+results_df_calc$parameter[results_df_calc$parameter=="DTE.avg.EA"] <-  "DTE.avg"
 
-results_df_summary <- results_df_summary %>% group_by(parameter, method) %>% summarise(coverage = mean(coverage), 
+
+results_df_summary <- results_df_calc %>% group_by(parameter, method) %>% summarise(coverage = mean(coverage), 
                                                                                        bias = mean(bias), 
-                                                                                       MSE = mean(MSE))
+                                                                                       MSE = mean(MSE), 
+                                                                                       power = mean(power))
 
 #write.csv(results_df_summary, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_results_summary_PTB.csv", row.names = F)
 write.csv(results_df_summary, file="../TWFE-simulation/results/twfe_sim_results_summary_PTB.csv", row.names = F)
