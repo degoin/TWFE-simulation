@@ -519,8 +519,8 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   
   # dynamic results 
   # define the truth 
-  dte_truth <- data.frame(estimator="truth", time= (min(dat_dte$time_since_A, na.rm=T)+1):max(dat_dte$time_since_A, na.rm=T), 
-                          result=c(rep(0,-1*min(dat_dte$time_since_A, na.rm=T) - 1), 
+  dte_truth <- data.frame(estimator="truth", time= (min(dat_dte$time_since_A, na.rm=T)):max(dat_dte$time_since_A, na.rm=T), 
+                          result=c(rep(0,-1*min(dat_dte$time_since_A, na.rm=T)), 
                                    rep(DTE[1], 12), 
                                    rep(DTE[2], 12), 
                                    rep(DTE[3], max(dat_dte$time_since_A, na.rm=T) - 23)), lb=NA, ub=NA, power=NA)
@@ -555,6 +555,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   stacked$SE <- NULL
   stacked$power <- as.numeric(stacked$ub<0)
   stacked$estimator <- "stacked.regression"
+  
   
   # TWFE for ever adopted 
   
