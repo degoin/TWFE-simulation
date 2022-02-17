@@ -5,13 +5,14 @@ library(did)
 library(sandwich)
 library(ggrepel)
 
-set.seed(38525753)
+set.seed(15295632)
 
 # combine all years into one data frame
 df_ls <- list()
 for(i in 2011:2016) {
-df_ls[[i - 2010]] <- read.csv(paste0("/Users/danagoin/Documents/Research projects/TWFE/data/state-month-ptb-2-",i,".csv"))
+#df_ls[[i - 2010]] <- read.csv(paste0("/Users/danagoin/Documents/Research projects/TWFE/data/state-month-ptb-2-",i,".csv"))
 #df_ls[[i - 2010]] <- read.csv(paste0("./intermediate-data/state-month-ptb-2-",i,".csv"))
+df_ls[[i - 2010]] <- read.csv(paste0("/Users/danagoin/Documents/Research projects/TWFE/TWFE-simulation/data/simulation-data/after-exclusions/state-month-ptb-2-",i,".csv"))
 if (i >2015) {
   df_ls[[i-2010]] <- df_ls[[i-2010]] %>% rename(MRSTATEPSTL = MRSTATE) 
 }
@@ -39,8 +40,8 @@ num_months <- 12 * (2016 - 2011 + 1)
 # don't want to include this type of heterogeneity at this point, so add more data for them 
 #ggplot(df_ptb %>% filter(state_name %in% c("Alaska", "Massachusetts","Minnesota", "Mississippi","Virginia"))) + geom_line(aes(x=month, y=ptb_prop, color=factor(state_name)))
 
-d1 <- data.frame(MRSTATEPSTL = "AK", DOB_MM = NA, ptb_prop = NA, ptb_prop2 = NA, year = NA, 
-                 state_name="Alaska", 
+d1 <- data.frame(MRSTATEPSTL = "AK", DOB_MM = NA, ptb_prop = mean(df_ptb$ptb_prop[df_ptb$MRSTATEPSTL=="AK"]), ptb_prop2 = NA, year = NA, 
+                 state_name="Alaska", n = round(mean(df_ptb$n[df_ptb$MRSTATEPSTL=="AK"]),0), 
                  Census_Region = "West", State="Alaska", Revised_bcert_year=2013, Expanded_Medicaid=1, 
                  Expansion_Date = as.POSIXct("2015-09-01"), Year_prior_expansion= NA, FPL_early_expansion = NA, 
                  Section_1115_waiver = 0, Expansion_type= "Full", Notes_births = NA, Notes = NA, FIPS = 2, 
@@ -49,8 +50,8 @@ d1$year <- as.numeric(substr(as.character(d1$month),1,4))
 m_add1 <- d1[!d1$month %in% df_ptb$month[df_ptb$state_name=="Alaska"],]
 
 
-d2 <- data.frame(MRSTATEPSTL = "MA", DOB_MM = NA, ptb_prop = NA, ptb_prop2 = NA, year = NA, 
-                 state_name="Massachusetts", 
+d2 <- data.frame(MRSTATEPSTL = "MA", DOB_MM = NA, ptb_prop = mean(df_ptb$ptb_prop[df_ptb$MRSTATEPSTL=="MA"]), ptb_prop2 = NA, year = NA, 
+                 state_name="Massachusetts", n = round(mean(df_ptb$n[df_ptb$MRSTATEPSTL=="MA"]),0), 
                  Census_Region = "Northeast", State="Massachusetts", Revised_bcert_year=2011, Expanded_Medicaid=1, 
                  Expansion_Date = as.POSIXct("2014-01-01"), Year_prior_expansion= as.POSIXct("2006-04-12"), FPL_early_expansion = 150, 
                  Section_1115_waiver = 0, Expansion_type= "Mild", Notes_births = NA, Notes = "Romneycare expanded insurance to low income adults in 2006 (free if < 150%, subsidized for < 300% FPL)", 
@@ -59,8 +60,8 @@ d2 <- data.frame(MRSTATEPSTL = "MA", DOB_MM = NA, ptb_prop = NA, ptb_prop2 = NA,
 d2$year <- as.numeric(substr(as.character(d2$month),1,4))
 m_add2 <- d2[!d2$month %in% df_ptb$month[df_ptb$state_name=="Massachusetts"],]
 
-d3 <- data.frame(MRSTATEPSTL = "MN", DOB_MM = NA, ptb_prop = NA, ptb_prop2 = NA, year = NA, 
-                 state_name="Minnesota", 
+d3 <- data.frame(MRSTATEPSTL = "MN", DOB_MM = NA, ptb_prop = mean(df_ptb$ptb_prop[df_ptb$MRSTATEPSTL=="MN"]), ptb_prop2 = NA, year = NA, 
+                 state_name="Minnesota", n = round(mean(df_ptb$n[df_ptb$MRSTATEPSTL=="MN"]),0), 
                  Census_Region = "Midwest", State="Minnesota", Revised_bcert_year=2011, Expanded_Medicaid=1, 
                  Expansion_Date = as.POSIXct("2014-01-01"), Year_prior_expansion= as.POSIXct("2010-03-01"), FPL_early_expansion = 75, 
                  Section_1115_waiver = 0, Expansion_type= "Substantial", Notes_births = NA, Notes = "Early expansion in 2010 with Medicaid for incomes < 75% FPL and MinnesotaCare for 75-200%", 
@@ -70,8 +71,8 @@ d3$year <- as.numeric(substr(as.character(d3$month),1,4))
 m_add3 <- d3[!d3$month %in% df_ptb$month[df_ptb$state_name=="Minnesota"],]
 
 
-d4 <- data.frame(MRSTATEPSTL = "MS", DOB_MM = NA, ptb_prop = NA, ptb_prop2 = NA, year = NA, 
-                 state_name="Mississippi", 
+d4 <- data.frame(MRSTATEPSTL = "MS", DOB_MM = NA, ptb_prop = mean(df_ptb$ptb_prop[df_ptb$MRSTATEPSTL=="MS"]), ptb_prop2 = NA, year = NA, 
+                 state_name="Mississippi", n = round(mean(df_ptb$n[df_ptb$MRSTATEPSTL=="MS"]),0), 
                  Census_Region = "South", State="Mississippi", Revised_bcert_year=2013, Expanded_Medicaid=0, 
                  Expansion_Date = NA, Year_prior_expansion= NA, FPL_early_expansion = NA, 
                  Section_1115_waiver = 0, Expansion_type= NA, Notes_births = NA, Notes = NA, 
@@ -81,8 +82,8 @@ d4$year <- as.numeric(substr(as.character(d4$month),1,4))
 m_add4 <- d4[!d4$month %in% df_ptb$month[df_ptb$state_name=="Mississippi"],]
 
 
-d5 <- data.frame(MRSTATEPSTL = "VA", DOB_MM = NA, ptb_prop = NA, ptb_prop2 = NA, year = NA, 
-                 state_name="Virginia", 
+d5 <- data.frame(MRSTATEPSTL = "VA", DOB_MM = NA, ptb_prop = mean(df_ptb$ptb_prop[df_ptb$MRSTATEPSTL=="VA"]), ptb_prop2 = NA, year = NA, 
+                 state_name="Virginia", n = round(mean(df_ptb$n[df_ptb$MRSTATEPSTL=="VA"]),0), 
                  Census_Region = "South", State="Virginia", Revised_bcert_year=2012, Expanded_Medicaid=1, 
                  Expansion_Date = as.POSIXct("2019-01-01"), Year_prior_expansion= NA, FPL_early_expansion = NA, 
                  Section_1115_waiver = 0, Expansion_type= NA, Notes_births = NA, Notes = NA, 
@@ -92,52 +93,62 @@ d5$year <- as.numeric(substr(as.character(d5$month),1,4))
 m_add5 <- d5[!d5$month %in% df_ptb$month[df_ptb$state_name=="Virginia"],]
 
 dat <- data.frame(rbind(df_ptb, m_add1, m_add2, m_add3, m_add4, m_add5))
-
 #dat <- data.frame(rbind(df_ptb %>% select(-n), m_add1, m_add2, m_add3, m_add4, m_add5))
 dat <- dat %>% arrange(State, month)
 
+# create treatment indicator by month 
+dat <- dat %>% mutate(A = as.numeric(month>=Expansion_Date)) 
+dat$A[is.na(dat$A)] <- 0
 
 # create month indicators from beginning to end of study 
 dat <- dat %>% arrange(FIPS, month)
 dat <- dat %>% group_by(FIPS) %>% mutate(month_ind = 1:num_months)
 
-# 21 sates expanded Medicaid -- for those that expanded, draw expansion date uniformly in post-period  
+# identify which month the state expanded Medicaid 
+dat <- dat %>% group_by(state_name) %>% mutate(A_time = min(month_ind[which(A==1)]))
+dat$A_time[is.infinite(dat$A_time)] <- 0 
 
-# create treatment indicator by month by randomly sampling post-exposure month 
-#dat <- dat %>% group_by(FIPS) %>%  mutate(first_A = ifelse(Expanded_Medicaid==1, sample(37:num_months, size=1), NA)) 
-dat <- dat %>% group_by(FIPS) %>%  mutate(first_A = ifelse(Expanded_Medicaid==1, sample(c(37,52,65,72), size=1), NA)) 
-
-dat <- dat %>% mutate(A = as.numeric(month_ind>=first_A)) 
-dat$A[is.na(dat$A)] <- 0
-
+# identify those states who ever expanded 
+dat <- dat %>% group_by(State) %>% mutate(ever_A = max(A))
+# classify the time since the intervention for those who got it 
+dat <- dat %>% mutate(time_since_A = ifelse(ever_A==0, NA, month_ind-A_time))
 
 ##############################################################################################################################
 # SIMULATION 
 ##############################################################################################################################
 
 
-sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
-  print(iteration)
-# create state-level intercept and noise for each state-month 
-dat <- dat %>% group_by(state_name) %>% mutate(intercept = mean(ptb_prop, na.rm=T),
-                                               e_Y = rnorm(n=num_months, mean=0, sd=sqrt(var(ptb_prop, na.rm=T))), 
-                                               A_time = min(month_ind[which(A==1)]))
-
-dat$A_time[is.infinite(dat$A_time)] <- 0 
-
-# identify those who ever get the intervention 
-dat <- dat %>% group_by(State) %>% mutate(ever_A = max(A))
-# classify the time since the intervention for those who got it 
-dat <- dat %>% mutate(time_since_A = ifelse(ever_A==0, NA, month_ind-A_time))
-                          
+#sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
+#  print(iteration)
 
 ##############################################################################################################################
 # CONSTANT TREATMENT EFFECT 
 ##############################################################################################################################
-dat <- dat %>%  mutate(Y = intercept + A*CTE + e_Y)
-                      
+# create individual records of preterm birth, which are determined by the average risk of PTB plus exposure in a given state-month 
+states <- unique(dat$FIPS)
+
+state_ls <- list()
+for (i in 1:length(states)) {
+  df_ls <- list()
+  for(j in 1:num_months) {
+    df_ls[[j]] <- data.frame(State=dat$State[dat$FIPS==states[i] & dat$month_ind==j], 
+                             FIPS = states[i], 
+                             Expanded_Medicaid = dat$Expanded_Medicaid[dat$FIPS==states[i] & dat$month_ind==j], 
+                             month = dat$month[dat$FIPS==states[i] & dat$month_ind==j], 
+                             A = dat$A[dat$FIPS==states[i] & dat$month_ind==j], 
+                             A_time = dat$A_time[dat$FIPS==states[i] & dat$month_ind==j], 
+                             month_ind = j, 
+                             ptb = rbinom(n=dat$n[dat$FIPS==states[i] & dat$month_ind==j], size=1, prob = (dat$ptb_prop[dat$FIPS==states[i] & dat$month_ind==j] + CTE*dat$A[dat$FIPS==states[i] & dat$month_ind==j])))
+  }
+  state_ls[[i]] <- data.frame(do.call(rbind, df_ls))
+}
+
+df_all <- data.frame(do.call(rbind, state_ls))
+df_all$ID <- as.numeric(rownames(df_all))
+dat_sample <- df_all[sample(nrow(df_all), size=100000, replace=F),]
+
 # estimate effects using TWFE 
-m1 <- glm(Y ~ A + factor(State) + factor(month_ind), data=dat, family="gaussian")
+m1 <- glm(ptb ~ A + factor(State) + factor(month_ind), data=dat_sample, family="gaussian")
 # get variance from sandwich estimator -- type = "HC0"
 #m1_var<- sandwich(m1)
 m1_var <- vcovHC(m1, type="HC3")
@@ -145,8 +156,19 @@ m1_var <- vcovHC(m1, type="HC3")
 #sqrt(m1_var["A","A"])
 #sqrt(test["A","A"])
 
+# estimate effects using a logistic model 
+m1b <- glm(ptb ~ A + factor(State) + factor(month_ind), data=dat_sample, family="binomial")
+# get variance from sandwich estimator -- type = "HC0"
+#m1_var<- sandwich(m1)
+m1b_var <- vcovHC(m1b, type="HC3")
+
+p1 <- predict(m1b, newdata = dat_sample %>% select(-A) %>% mutate(A=1), type="response")
+p0 <- predict(m1b, newdata = dat_sample %>% select(-A) %>% mutate(A=0), type="response")
+
+test <- mean(p1-p0)
+
 # estimate effects using group-time ATT
-m2 <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat, anticipation=0)
+m2 <- att_gt(yname="ptb", tname="month_ind", idname="ID", gname="A_time", data=dat_sample, anticipation=0)
 m2_ag <- aggte(m2, type="simple")
 #m2_ag$overall.att
 
@@ -196,7 +218,7 @@ df_cte_wide <- df_cte %>% pivot_wider(names_from=c(type,estimator), values_from=
 ##############################################################################################################################
 
 # define the heterogeneous treatment effect and generate the outcome 
-dat_hte <- dat %>% mutate(HTE = ifelse(A_time<65 & ever_A==1, HTE[1], ifelse(A_time>=65 & ever_A==1, HTE[2], 0))) %>%  mutate(Y = intercept + A*HTE  + e_Y)
+dat_hte <- dat %>% mutate(HTE = ifelse(A_time<40 & ever_A==1, HTE[1], ifelse(A_time>=40 & ever_A==1, HTE[2], 0))) %>%  mutate(Y = intercept + A*HTE  + e_Y)
 
 # estimate effects using TWFE 
 m1_hte <- glm(Y ~ A  + factor(State) + factor(month_ind), data=dat_hte, family="gaussian")
@@ -225,11 +247,11 @@ m2_hte_ea_ag <- aggte(m2_hte_ea, type="group")
 
 
 # calculate the truth for the HTE parameter
-hte_truth <- (HTE[1]*length(dat_hte$HTE[dat_hte$A_time<65 & dat_hte$A_time==dat_hte$month_ind]) + HTE[2]*length(dat_hte$HTE[dat_hte$A_time>=65 & dat_hte$A_time==dat_hte$month_ind]))/length(unique(dat_hte$State[dat_hte$ever_A==1]))
+hte_truth <- (HTE[1]*length(dat_hte$HTE[dat_hte$A_time<40 & dat_hte$A_time==dat_hte$month_ind]) + HTE[2]*length(dat_hte$HTE[dat_hte$A_time>=40 & dat_hte$A_time==dat_hte$month_ind]))/length(unique(dat_hte$State[dat_hte$ever_A==1]))
 
-#### figure out how to incorporate different truth for ever-adopted 
-hte_truth_ea <- (HTE[1]*length(dat_hte_i$HTE[dat_hte_i$A_time<65 & dat_hte_i$A_time==dat_hte_i$month_ind]) + HTE[2]*length(dat_hte_i$HTE[dat_hte_i$A_time>=65 & dat_hte_i$A_time<72 & dat_hte_i$A_time==dat_hte_i$month_ind]))/length(unique(dat_hte_i$State[dat_hte_i$ever_A==1 & dat_hte_i$A_time<72]))
 
+# calculate different truth for ever-adopted 
+hte_truth_ea <- (HTE[1]*length(dat_hte_i$HTE[dat_hte_i$A_time<40 & dat_hte_i$A_time==dat_hte_i$month_ind]) + HTE[2]*length(dat_hte_i$HTE[dat_hte_i$A_time>=40 & dat_hte_i$A_time<max(m2_hte$group) & dat_hte_i$A_time==dat_hte_i$month_ind]))/length(unique(dat_hte_i$State[dat_hte_i$ever_A==1 & dat_hte_i$A_time<max(m2_hte$group)]))
 
 # combine results
 df_hte <- data.frame(rbind(cbind(estimator="truth", result=hte_truth, lb = NA, ub = NA), 
@@ -240,14 +262,14 @@ df_hte <- data.frame(rbind(cbind(estimator="truth", result=hte_truth, lb = NA, u
                                  lb = m2_hte_ag$overall.att - 1.96*m2_hte_ag$overall.se, 
                                  ub = m2_hte_ag$overall.att + 1.96*m2_hte_ag$overall.se)))
 
- 
+
 df_hte_ea <-  data.frame(rbind(cbind(estimator="truth", result=hte_truth_ea, lb=NA, ub=NA), 
                                cbind(estimator = "TWFE.ever.adopted", result = summary(m1_hte_i)$coefficients["A", "Estimate"], 
-                                 lb = summary(m1_hte_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_hte_var_i["A","A"]), 
-                                 ub = summary(m1_hte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var_i["A","A"])), 
-                           cbind(estimator = "group.time.ATT.ever.adopted", result = m2_hte_ea_ag$overall.att, 
-                                 lb = m2_hte_ea_ag$overall.att - 1.96*m2_hte_ea_ag$overall.se, 
-                                 ub = m2_hte_ea_ag$overall.att + 1.96*m2_hte_ea_ag$overall.se)))
+                                     lb = summary(m1_hte_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_hte_var_i["A","A"]), 
+                                     ub = summary(m1_hte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var_i["A","A"])), 
+                               cbind(estimator = "group.time.ATT.ever.adopted", result = m2_hte_ea_ag$overall.att, 
+                                     lb = m2_hte_ea_ag$overall.att - 1.96*m2_hte_ea_ag$overall.se, 
+                                     ub = m2_hte_ea_ag$overall.att + 1.96*m2_hte_ea_ag$overall.se)))
 
 
 df_hte$result <- as.numeric(df_hte$result)
@@ -288,8 +310,8 @@ m1_dte_var <- vcovHC(m1_dte, type="HC3")
 # estimate effects using group-time ATT 
 m2_dte <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte, anticipation=0)
 m2_dte_ag <- aggte(m2_dte, type="simple")
-#summary(m2_dte_ag) 
-#ggdid(m2_dte_ag)
+#summary(m2_hte_ag) 
+#ggdid(m2_hte_ag)
 
 
 # TWFE if you only include those who eventually get the intervention 
@@ -304,32 +326,16 @@ m1_dte_var_i <- vcovHC(m1_dte_i, type="HC3")
 m2_dte_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte_i, anticipation=0, control_group = "notyettreated")
 m2_dte_ea_ag <- aggte(m2_dte_ea, type="simple")
 
-# calculate number of state-months of treatment for denominator, state-months of each treatment size in numerator
-dat_dte <- dat_dte %>% group_by(State) %>% mutate(num_post_months = max(time_since_A))
-dat_dte$num_post_months <- ifelse(dat_dte$time_since_A==dat_dte$num_post_months, dat_dte$num_post_months, NA)
-# I think this is wrong because it excludes time t=0, which is an intervention period 
-
 # calculate the truth for the average effect in the post-period 
-dte_truth_avg <- (DTE[1]*sum(dat_dte$time_since_A>=0 & dat_dte$time_since_A<12 & dat_dte$ever_A==1, na.rm=T) + 
-                    DTE[2]*sum(dat_dte$time_since_A>=12 & dat_dte$time_since_A<24  & dat_dte$ever_A==1, na.rm=T) +
-                    DTE[3]*sum(dat_dte$time_since_A>=24  & dat_dte$ever_A==1, na.rm=T))/sum(dat_dte$time_since_A>=0, na.rm=T)
-  
-  #sum(dat_dte$num_post_months,na.rm=T)
+dte_truth_avg <- (DTE[1]*sum(dat_dte$time_since_A>=0 & dat_dte$time_since_A<12, na.rm=T) + 
+                    DTE[2]*sum(dat_dte$time_since_A>=12 & dat_dte$time_since_A<24, na.rm=T) +
+                    DTE[3]*sum(dat_dte$time_since_A>=24, na.rm=T))/sum(dat_dte$time_since_A>=0,na.rm=T)
 
 
-# calculate number of state-months of treatment for denominator, state-months of each treatment size in numerator
-# but for ever adopted group, need to exclude last treated group 
-dat_dte_i <- dat_dte_i %>% group_by(State) %>% mutate(num_post_months = max(time_since_A))
-dat_dte_i$num_post_months_ea <- ifelse(dat_dte_i$time_since_A==dat_dte_i$num_post_months & dat_dte_i$A_time<72, dat_dte_i$num_post_months, NA)
-
-# calculate the truth for the average effect in the post-period 
+# calculate truth for average effect in the post-period for ever adopted group -- need to exclude last treated group 
 dte_truth_avg_ea <- (DTE[1]*sum(dat_dte_i$time_since_A>=0 & dat_dte_i$time_since_A<12 & dat_dte_i$ever_A==1 & dat_dte_i$A_time<72, na.rm=T) + 
-                    DTE[2]*sum(dat_dte_i$time_since_A>=12 & dat_dte_i$time_since_A<24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<72, na.rm=T) +
-                    DTE[3]*sum(dat_dte_i$time_since_A>=24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<72, na.rm=T))/sum(dat_dte_i$time_since_A>=0, na.rm=T)
-  
-  #sum(dat_dte_i$num_post_months_ea,na.rm=T)
-
-
+                       DTE[2]*sum(dat_dte_i$time_since_A>=12 & dat_dte_i$time_since_A<24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<72, na.rm=T) +
+                       DTE[3]*sum(dat_dte_i$time_since_A>=24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte$group), na.rm=T))/sum(dat_dte_i$time_since_A>=0 & dat_dte_i$A_time<max(m2_dte$group), na.rm=T)
 
 # combine results 
 df_dte_avg <- data.frame(rbind(cbind(estimator="truth", result=dte_truth_avg, lb = NA, ub = NA), 
@@ -341,12 +347,12 @@ df_dte_avg <- data.frame(rbind(cbind(estimator="truth", result=dte_truth_avg, lb
                                      ub = m2_dte_ag$overall.att + 1.96*m2_dte_ag$overall.se))) 
 
 df_dte_avg_ea <- data.frame(rbind(cbind(estimator="truth", result=dte_truth_avg_ea, lb = NA, ub = NA), 
-                               cbind(estimator = "TWFE.ever.adopted", result = summary(m1_dte_i)$coefficients["A", "Estimate"], 
-                                     lb = summary(m1_dte_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_dte_var_i["A","A"]), 
-                                     ub = summary(m1_dte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var_i["A","A"])), 
-                               cbind(estimator = "group.time.ATT.ever.adopted", result = m2_dte_ea_ag$overall.att, 
-                                     lb = m2_dte_ea_ag$overall.att - 1.96*m2_dte_ea_ag$overall.se, 
-                                     ub = m2_dte_ea_ag$overall.att + 1.96*m2_dte_ea_ag$overall.se)))
+                                  cbind(estimator = "TWFE.ever.adopted", result = summary(m1_dte_i)$coefficients["A", "Estimate"], 
+                                        lb = summary(m1_dte_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_dte_var_i["A","A"]), 
+                                        ub = summary(m1_dte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var_i["A","A"])), 
+                                  cbind(estimator = "group.time.ATT.ever.adopted", result = m2_dte_ea_ag$overall.att, 
+                                        lb = m2_dte_ea_ag$overall.att - 1.96*m2_dte_ea_ag$overall.se, 
+                                        ub = m2_dte_ea_ag$overall.att + 1.96*m2_dte_ea_ag$overall.se)))
 
 
 df_dte_avg$result <- as.numeric(df_dte_avg$result)
@@ -464,12 +470,12 @@ return(overall_result)
 }
 
 
-results_ls <- lapply(1:1000, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02)))
+system.time(results_ls <- lapply(1:1000, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.02, -0.01), DTE = c(-0.01, -0.015, -0.02))))
 
 results_df <- data.frame(do.call(rbind, results_ls))
 
-write.csv(results_df, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_results_PTB_uniform.csv", row.names = F)
-
+#write.csv(results_df, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_results_PTB.csv", row.names = F)
+write.csv(results_df, file="../TWFE-simulation/results/twfe_sim_results_PTB.csv", row.names = F)
 
 results_df_calc <- results_df %>% pivot_longer(cols= everything(), names_to=c("estimand", "parameter", "method"), names_sep="_")
 results_df_calc <- results_df_calc %>% group_by(estimand, parameter, method) %>% mutate(iteration = row_number())
@@ -482,6 +488,7 @@ results_df_calc <- results_df_calc %>% group_by(iteration, parameter, method) %>
 
 
 results_df_summary <- results_df_calc %>% filter(estimand=="result" & method!="truth")
+# rename parameters so they alls how up on same plot 
 results_df_summary$parameter[results_df_summary$parameter=="HTE.EA"] <-  "HTE"
 results_df_summary$parameter[results_df_summary$parameter=="DTE.avg.EA"] <-  "DTE.avg"
 
@@ -489,5 +496,5 @@ results_df_summary <- results_df_summary %>% group_by(parameter, method) %>% sum
                                                                                        bias = mean(bias), 
                                                                                        MSE = mean(MSE))
 
-#write.csv(results_df_summary, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_results_summary_PTB_uniform.csv", row.names = F)
-write.csv(results_df_summary, file="../TWFE-simulation/results/twfe_sim_results_summary_PTB_uniform.csv", row.names = F)
+#write.csv(results_df_summary, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_results_summary_PTB.csv", row.names = F)
+write.csv(results_df_summary, file="../TWFE-simulation/results/twfe_sim_results_summary_PTB.csv", row.names = F)
