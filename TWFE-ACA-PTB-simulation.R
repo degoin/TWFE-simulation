@@ -122,7 +122,8 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   # create state-level intercept and noise for each state-month 
   dat <- dat %>% group_by(state_name) %>% mutate(intercept = mean(ptb_prop, na.rm=T), 
                                                  e_Y = rnorm(n = num_months, mean = 0, sd = sqrt(var(ptb_prop, na.rm=T))), 
-                                                 A_time = min(month_ind[which(A==1)])) 
+                                                 A_time = min(month_ind[which(A==1)]), 
+                                                 A_month = min(month[which(A==1)])) 
   
   dat$A_time[is.infinite(dat$A_time)] <- 0 # month index of first expansion is equal to 0, 37, 49, 57, and 67 for ACA expansion
   
@@ -488,6 +489,17 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   m2_dte_yr_ag <- aggte(m2_dte_yr, type="dynamic", cband=TRUE)
   #summary(m2_hte_ag) 
   
+  # estimate effects using stacked regression from Ben Michael paper 
+  dat_dte <- dat_dte %>% ungroup()
+  dat_dte$month <- as.Date(dat_dte$month)
+  dat_dte$A_month <- as.Date(dat_dte$A_month)
+  
+  source("helper_func_ed.R")
+  
+  m3_dte <- fit_event_jack(outcome = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat_dte, max_time_to = 10000) %>% 
+    filter(cohort=="average")
+  
+  
   #ggdid(m2_dte_yr_ag)
   
   # estimate TWFE model only among those who ever get the intervention 
@@ -535,6 +547,15 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   gt$SE <- gt$c <- NULL 
   gt$power <- as.numeric(gt$ub<0)
   
+  
+  # stacked regression 
+  stacked <- data.frame(cbind(result = m3_dte$estimate, SE = m3_dte$se, time = m3_dte$event_time))
+  stacked$lb <- stacked$result - 1.96*stacked$SE 
+  stacked$ub <- stacked$result + 1.96*stacked$SE
+  stacked$SE <- NULL
+  stacked$power <- as.numeric(stacked$ub<0)
+  stacked$estimator <- "stacked.regression"
+  
   # TWFE for ever adopted 
   
   twfe_ea <- data.frame(cbind(result = summary(m1_dte_yr_i)$coefficients))
@@ -557,7 +578,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   gt_ea$power <- as.numeric(gt_ea$ub <0)
   
   # combine all dynamic results
-  df_dyn <- data.frame(rbind(dte_truth, twfe, gt, twfe_ea, gt_ea))
+  df_dyn <- data.frame(rbind(dte_truth, twfe, gt, stacked, twfe_ea, gt_ea))
   df_dyn$type <- paste0("DTE.",df_dyn$time)
   
   # make wide so results can be stacked 
@@ -569,7 +590,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
 }
 
 
-system.time(results_ls <- lapply(1:100, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.02, -0.01), DTE = c(-0.01, -0.015, -0.02))))
+system.time(results_ls <- lapply(1:5, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.02, -0.01), DTE = c(-0.01, -0.015, -0.02))))
 
 results_df <- data.frame(do.call(rbind, results_ls))
 
