@@ -1,0 +1,1257 @@
+---
+title: "Companion Guide to 'New developments in difference-in-differences designs'"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    toc_depth: 3
+    number_sections: true
+    theme: lumen
+---
+
+## Overview
+
+In this companion guide, we illustrate scenarios in which difference in differences
+analysis can be applied. We start with the simplest of scenarios and slowly amp
+up the complexity. For each scenario we describe a target parameter
+to estimate and the parameter estimated by a two-way fixed effects model. We
+also apply the Goodman-Bacon decomposition to this parameter to determine if the
+TWFE estimate is partially composed of estimates that are "forbidden" (e.g., ones
+that compare a newly treated state to a previously treated state) and apply the 
+Callaway and Sant'Anna approach to estimation. 
+
+The goal is to illustrate scenarios where the usual TWFE method of estimation 
+provides suitable results and scenarios where this approach is biased. 
+In the latter case, we show alternative methods to estimation to overcome the 
+issue.
+
+### Load the R packages used in this analysis
+
+First, load the packages for reading and plotting the data. The packages `bacondecomp` and 
+`did` are specific to DID analyses.
+
+```{r load-libraries, warning=F, message=F}
+# you will need to install these packages if you don't have them already
+# install.packages(c("here", "readxl", "tidyverse", "patchwork", "magrittr", 
+# "broom", "ggrepel",  "bacondecomp", "did"))
+
+library(here)
+library(readxl)
+library(tidyverse)
+library(patchwork)
+library(magrittr)
+library(broom)
+library(ggrepel)
+library(bacondecomp)
+library(did)
+```
+
+## Scenario 1
+
+We first consider the simplest case in which there is one never-treated group, 
+one group that undergoes treatment. The groups are observed during two time 
+periods only. 
+
+Below, the data are read in from an excel spreadsheet. Feel free to view the 
+data in the spreadsheet or use an R `View()`er window.
+The data contain four variables `state`, `time`, `policy`, and `outcome`. 
+
+* `state`: ID for the grouping variable
+* `time`: Time index, begins at 1
+* `policy`: Indicator variable for exposure to the policy change
+* `outcome`: The outcome variable
+
+```{r}
+s1 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen1",
+                col_types = c("text", "text", "text", "numeric"))
+# str(s1)
+# View(s1)
+```
+Note that I specified the column types for each variable. I read in the state, 
+time, and policy variables as "text" so that R will consider them as 
+categorical/factor variables in the analysis (or, using econ-speak using 
+"fixed effects").
+
+### Visualization of Scenario 1
+
+```{r, echo = F}
+ggplot(s1, aes(x = time, y = outcome)) + 
+  geom_point(aes(fill = state), size = 4, pch = 21) +
+  geom_text(aes(label = outcome), nudge_x = 0.075) +
+  scale_fill_manual(values = c("#a6cee3","#005a32")) + 
+  theme_bw()
+```
+
+The following can be read from the labelled plot:
+
+* Pre-treatment difference of 1
+* Post-treatment difference of 3
+* Causal effect of policy = 3-1 = 2 under the following assumptions
+
+Assumptions
+
+1) parallel trends, or counterfactual parallel trends as described by Ben-Micheal,
+2) No anticipation, 
+3) Policy is the only thing that changes at the time of treatment that affects the outcome
+
+### Two-way fixed effected (TWFE) regression model
+
+Under the canonical TWFE design, we can estimate the policy effect by including
+a fixed effect (FE) for state, a FE for time, and an indicator for the policy
+change. The effect estimate is the regression coefficient on the policy variable.
+
+```{r}
+s1_mod <- lm(outcome ~ state + time + policy, data = s1)
+tidy(s1_mod)
+```
+
+The coefficient on the policy term is `r s1_mod$coefficients[4]` showing that
+the regression model estimate equalled the causal effect.
+
+**Takeaway:** When there are only two treatment groups and two time points, 
+where one of the groups becomes treated, you can calculate the DID estimate 
+by hand or using TWFE regression. Note that there are only 4 rows of data
+and no sampling variability so no measures of variation can be estimated in this
+setting.
+
+## Scenario 2A and 2B
+
+This scenario is similar to Scenario 1, except now there are two states that
+undergo treatment. In Scenario 2A, the magnitude of the treatment effect is the 
+same in both states. In Scenrio 2B, the magnitude of the treatment effect 
+varies by state.
+
+```{r import-scen2}
+s2a <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen2a",  
+                 col_types = c("text", "text", "text", "numeric"))
+
+s2b <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen2b",
+                  col_types = c("text", "text", "text", "numeric"))
+```
+
+### Visualization of Scenario 2
+
+```{r, echo=F}
+s2a_plot <-ggplot(s2a, aes(x = time, y = outcome)) + 
+  geom_point(aes(fill = state), size = 4, pch = 21) +
+  geom_text(aes(label = outcome), nudge_x = 0.1) +
+  scale_fill_manual(values = c("#a6cee3","#005a32", "#99000d")) +
+  theme_bw() + labs(title = "Scenario 2a")
+
+s2b_plot <-ggplot(s2b, aes(x = time, y = outcome)) + 
+  geom_point(aes(fill = state), size = 4, pch = 21) +
+  geom_text(aes(label = outcome), nudge_x = 0.1) +
+  scale_fill_manual(values = c("#a6cee3","#005a32", "#99000d")) +
+  theme_bw() + labs(title = "Scenario 2b")
+
+s2a_plot + s2b_plot + plot_layout(guides = "collect")  & 
+  scale_y_continuous(limits = range(c(s2a$outcome, s2b$outcome)))
+```
+
+The following can be read from the labelled plot for Scenario 2A:
+
+* Post-Pre Difference for never-treated state 1: 12-9=3
+* Post-Pre Difference for treated state 2: 15-10=5
+* Post-Pre Difference for treated state 3: 16-11=5
+* Causal effect of policy = 5-3 for both states for an average treatment effect on the treated (ATT) of 2
+
+The following can be read from the labelled plot for Scenario 2B:
+
+* Post-Pre Difference for never-treated state 1: 12-9=3
+* Post-Pre Difference for treated state 2: 15-10=5
+* Post-Pre Difference for treated state 3: 17-11=6
+* Causal effect of policy = 2 for state 2 vs 1 and 3 for state 3 vs 1 for an ATT of 2.5
+
+## TWFE Regression model
+
+```{r}
+s2a_mod <- lm(outcome ~ policy + state + time, data = s2a)
+tidy(s2a_mod)
+```
+
+The coefficient estimate equals to `r s2a_mod$coefficients["policy1"]` the ATT for Scenario 2a. 
+
+```{r}
+s2b_mod <- lm(outcome ~ policy + state + time, data = s2b)
+tidy(s2b_mod)
+```
+
+The coefficient estimate equals to `r s2b_mod$coefficients["policy1"]` the ATT for Scenario 2b. 
+
+**Takeaway:** When there are multiple treatment groups and two time points, 
+where >1 of the groups becomes treated, you can calculate the DID estimate by 
+hand or using TWFE regression. If treatment effects are heterogeneous across 
+states, then the estimated effect is the average treatment effect (ATE) across the 
+states
+
+**Things to discuss with Dana:**
+
+- The state FEs are a bit off (FE for state 3 should be 2, for state 2 should be 1)
+- Interesting to think about differences in the p-value for scen 2a (very small) vs 2b (big)
+
+## Scenario 3A and 3B
+
+In scenario 3, the number of time periods is increased to incorporate 5 time 
+points before and after a policy change. One never-treated and one treated
+group are considered. In Scenario 3A, the effect of treatment is constant once
+treatment is introduced. In Scenario 3B, the effect of treatment increases with 
+time (i.e., it is dynamic).
+
+Because there are multiple time points, when we read in the data we update the 
+column type for the time variable to be numeric. This will help with plotting 
+the data. Later, when we run the TWFE model, we will use `factor(time)` to
+model time using indicator variables (i.e., time fixed effects) rather than
+including time as a linear term.
+
+```{r}
+s3a <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen3a",
+                 col_types = c("text", "numeric", "text", "numeric", "text"))
+
+s3b <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen3b",
+                 col_types = c("text", "numeric", "text", "numeric", "text"))
+```
+
+In addition to `state`, `time`, `policy`, and `outcome`, the data contains 
+another variable `time_since_policy` which equals 0 before treatment (and 
+always equals 0 for the never-treated), and counts the time since treatment in
+the treated state.
+
+```{r, echo = F}
+
+# Because there are multiple time points, we first take the average of the outcome
+# during the pre and post-treatment time period separately for each state. 
+
+#first, add an indicator indicating time post treatment.
+s3a %<>% mutate(post = time >= 6) 
+s3b %<>% mutate(post = time >= 6)
+
+s3a_mean_info <- s3a %>% 
+  group_by(state, post) %>%
+  summarise(mean_y = mean(outcome)) %>% 
+  pivot_wider(id_cols = state, 
+              names_from = post, 
+              names_pre = "post_",
+              values_from = mean_y) %>%
+  mutate(diff = post_TRUE - post_FALSE)
+
+s3b_mean_info <- s3b %>% group_by(state, post) %>%
+  summarise(mean_y = mean(outcome)) %>% 
+  pivot_wider(id_cols = state,
+              names_from = post,
+              names_pre = "post_",
+              values_from = mean_y) %>%
+  mutate(diff = post_TRUE - post_FALSE)
+```
+## Visualization of Scenario 3
+
+```{r, echo=F}
+
+s3a_plot <- ggplot(s3a, aes(x = time, y = outcome)) + 
+  geom_line(aes(col = state)) + 
+  geom_point(aes(fill = state), pch = 21) +
+  labs(title = "Scenario 3A (Constant change)") +
+  geom_vline(aes(xintercept = 5.5), lty = 2) + 
+  geom_label(data = s3a_mean_info, 
+            aes(y = post_FALSE, x = 4, 
+                col = state, 
+                label = paste("y_mean= ", post_FALSE)),
+            nudge_y = 0.1) +
+    geom_label(data = s3a_mean_info, 
+            aes(y = post_TRUE, x = 8, 
+                col = state, 
+                label = paste("y_mean= ", post_TRUE)),
+            nudge_y = 0.1) +
+  scale_fill_manual(values = c("#a6cee3","#005a32")) +
+  scale_color_manual(values = c("#a6cee3","#005a32")) +
+  theme_bw()
+
+s3b_plot <- ggplot(s3b, aes(x = time, y = outcome)) + 
+  geom_line(aes(col = state)) + 
+  geom_point(aes(fill = state), pch = 21) + 
+  labs(title = "Scenario 3B (Dynamic change)") +
+  geom_vline(aes(xintercept = 5.5), lty = 2) + 
+  geom_label(data = s3b_mean_info, 
+            aes(y = post_FALSE, x = 4, 
+                col = state, 
+                label = paste("y_mean= ", post_FALSE)),
+            nudge_y = 0.1) +
+    geom_label(data = s3b_mean_info, 
+            aes(y = post_TRUE, x = 8, 
+                col = state, 
+                label = paste("y_mean= ", post_TRUE)),
+            nudge_y = 0.1) +
+  scale_fill_manual(values = c("#a6cee3","#005a32")) +
+  scale_color_manual(values = c("#a6cee3","#005a32")) +
+  theme_bw()
+
+s3a_plot + s3b_plot + plot_layout(guides = "collect")  & 
+  scale_y_continuous(limits = range(c(s3a$outcome, s3b$outcome)))
+```
+
+The following can be read from the labelled plot for Scenario 3A:
+
+* Pre-treatment difference is 17-15=2
+* Post-treatment difference is 34-30=4
+* DID = 2
+
+The following can be read from the labelled plot for Scenario 3B:
+
+* Pre-treatment difference is 17-15=2
+* Post-treatment difference is 38-30=8
+* DID = 6
+
+For Scenario 3B the effect is dynamic, and rather than 
+calculating an ATT that aggregates over post-time, it might be beneficial to calculate 
+the effect separately by time since treatment. To do that, we could label the 
+outcomes separately by time since treatment and calculate a separate DID for 
+every time point since treatment. The average of these DIDs will equal the 6
+that we calculated using the average outcome over post-treatment time.
+
+## TWFE Regression Model
+
+```{r}
+s3a_mod <- lm(outcome ~ policy + state + factor(time), 
+             data = s3a)
+tidy(s3a_mod)
+```
+
+The coefficient of the policy term is `r s3a_mod$coefficients["policy1"]`
+showing that the regression model estimate equaled the causal effect.
+
+```{r}
+s3b_mod <- lm(outcome ~ policy + state + factor(time), 
+             data = s3b)
+tidy(s3b_mod)
+```
+
+The coefficient of the policy term is `r s3b_mod$coefficients["policy1"]`
+showing that the regression model estimate equaled the causal effect.
+
+## TWFE Regression Model with `time_since_policy` specification
+
+Rather than using a binary indicator for the policy change, it can be coded
+using the `time_since_policy` variable. If we include this as a factor variable
+in the model, then separate effects will be estimated for each time since 
+treatment. 
+
+For Scenario 3A, using this variable should yield 2 for each time since treatment,
+since the treatment effect is constant over time.
+
+```{r}
+s3a_mod2 <- lm(outcome ~ time_since_policy + state + factor(time), 
+             data = s3a)
+tidy(s3a_mod2)
+```
+
+Indeed, this is what we see!
+
+For Scenario 3B, the effect increases by 2 units for every unit of time since
+treatment is initiated so this should be reflected in the coefficient estimates.
+
+```{r}
+s3b_mod2 <- lm(outcome ~ time_since_policy + state + factor(time), 
+             data = s3b)
+tidy(s3b_mod2)
+```
+
+For this scenario, the effect estimate is 2 in the first time after treatment, 
+then 4, and so on. 
+
+Note that we could have modeled `time_since_policy` linearly, however including 
+`time_since_policy` as a factor variable allows the estimation of effects to be
+non-linear over time.
+
+## Scenario 4
+
+Scenario 4 extends Scenario 3 to the multiple group setting. State 1 is 
+never-treated, while states 2-4 undergo treatment at time=6. The effects are 
+not dynamic in time, but they are heterogeneous with some states having a larger
+treatment effect 
+
+```{r}
+s4 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen4",
+                col_types = c("text", "numeric", "text", "numeric", "text", "numeric"))
+```
+
+```{r, echo=F}
+s4 %<>% mutate(post = time >= 6)
+
+s4_mean_info <- s4 %>% group_by(state, post) %>%
+  summarise(mean_y = mean(outcome)) %>% 
+  pivot_wider(id_cols = state, names_from = post, names_pre = "post_", values_from = mean_y) %>%
+  mutate(diff = post_TRUE - post_FALSE)
+```
+## Visualization of Scenario 4
+
+```{r, echo=F}
+ggplot(s4, aes(x = time, y = outcome)) + 
+  geom_line(aes(col = state)) + 
+  geom_point(aes(fill = state), pch = 21) + labs(title = "Scenario 4") +
+  geom_vline(aes(xintercept = 5.5), lty = 2) + 
+  geom_label(data = s4_mean_info, 
+            aes(y = post_FALSE, x = 4, 
+                col = state, 
+                label = paste("y_mean= ", post_FALSE))) +
+    geom_label(data = s4_mean_info, 
+            aes(y = post_TRUE, x = 8, 
+                col = state, 
+                label = paste("y_mean= ", post_TRUE))) + 
+  theme_bw() +
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) + 
+  scale_fill_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d"))
+```
+
+The following can be read from the labelled plot:
+
+* Pre-post difference for never-treated state 1: 30-15 = 15
+* Pre-post difference for treated state 2: 34-17 = 17
+* Pre-post difference for treated state 3: 35-19 = 16
+* Pre-post difference for treated state 4: 39-21 = 18
+
+* $DID_{2 vs. 1} = 17-15 = 2$
+* $DID_{3 vs. 1} = 16-15 = 1$
+* $DID_{4 vs. 1} = 18-15 = 3$
+* $ATT = 2$
+
+## TWFE Regression Model 
+
+```{r}
+s4_mod <- lm(outcome ~ policy + state + factor(time), 
+             data = s4)
+tidy(s4_mod)
+```
+
+The coefficient of the policy term is `r s4_mod$coefficients["policy1"]`
+showing that the regression model estimates the ATT.
+
+One of the issues with TWFE estimation is that contrasts between earlier-treated
+and later-treated states contribute to the coefficient estimate of the policy 
+term. While all states are treated at the same time in Scenario 4, we can use
+the Goodman-Bacon decomposition function `bacon()` to partition the effect 
+estimate into weighted component parts. 
+
+Before using the `bacon()` function, we need to modify some of the variables
+that are stored as characters by R to be stored as numeric: 
+
+```{r}
+s4 %<>% mutate(state_n = as.numeric(as.character(state)),
+               policy_n = as.numeric(as.character(policy)))
+```
+
+The `bacon` function has an argument called `formula`, where you list the outcome
+as a function of the policy change, i.e., `formula = outcome ~ policy_n`. Note 
+that no fixed effects are included in the formula. The time and state fixed 
+effects are specified by the `time_var`and `id_var` arguments.
+
+```{r}
+s4_bacon <- bacon(formula = outcome ~ policy_n, 
+                  data = s4,
+                  id_var = "state_n",
+                  time_var = "time")
+```
+
+This small table illustrates that 100% of the weight is put on comparisons between
+treated and untreated states and the ATT equals 2.
+
+For more detail we can print the object:
+
+```{r}
+s4_bacon 
+```
+
+`treated=6` says that all treated states start treatment at time = 6 and are
+compared to untreated states (with a fictitious treatment time of 99999).
+
+The results from the Goodman-Bacon Decomposition are reassuring and tell us we
+can trust the TWFE estimate. For pedagodgical purposes, we also show the estimate
+if we applied the Callaway Sant'Anna estimator using the `att_gt` function to 
+estimate group-time ATEs.
+
+Like `bacon()`, `att_gt()` requires all numeric variables. It also requires an
+argument called `gname`. `gname` expects a variable which encodes for each state
+the time of first policy change. For never-treated state 1, this variable 
+equals 0 and for treated states 2-4 this variable equals 6. 
+
+```{r}
+s4_cs <- att_gt(yname = "outcome", 
+             tname = "time", 
+             idname = "state_n", 
+             gname = "time_first_treat", 
+             data = s4, 
+             anticipation = 0)
+
+m2_ag <- aggte(s4_cs, type="simple")
+summary(m2_ag)
+```
+
+Here, we see the ATT is equal to `r # m2_ag$overall.att` as estimated by the TWFE 
+model.
+
+### Scenario 5
+
+Scenario 5 expands upon Scenario 4 by introducing staggered timing. In this 
+example, the treated states introduce the policy at two different time points.
+The treatment effects are non-dynamic and there are two never-treated states and
+two ever-treated states.
+
+```{r}
+s5 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen5",
+                col_types = c("text", "numeric", "text", "numeric", "text", "numeric"))
+```
+
+### Visualization of Scenario 5
+
+```{r, echo = F}
+ggplot(s5, aes(x = time, y = outcome)) + 
+  geom_line(aes(col = state)) + 
+  geom_point(aes(fill = state), pch = 21) + labs(title = "Scenario 5 (Staggered timing)") +
+  geom_vline(aes(xintercept = 4.5), lty = 2, col = "#005a32") + 
+  geom_vline(aes(xintercept = 11.5), lty = 2, col = "#99000d") +
+  scale_fill_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) +
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) +
+  theme_bw()
+```
+
+**Visualization of all comparisons made by TWFE regression**
+
+```{r, echo = F}
+mean_1_4 <- s5 %>% filter(time < 5) %>%
+  group_by(state) %>%
+  summarise(mean_1_4 = mean(outcome))
+
+mean_5_20 <- s5 %>% filter(time >= 5) %>%
+  group_by(state) %>%
+  summarise(mean_5_20 = mean(outcome))
+
+DID1 <- bind_cols(mean_1_4, 
+                  mean_5_20 %>% select(-state)) %>%
+  mutate(time_diff1 = mean_5_20 - mean_1_4)
+
+mean_1_11 <- s5 %>% filter(time < 12) %>%
+  group_by(state) %>%
+  summarise(mean_1_11 = mean(outcome))
+
+mean_12_20 <- s5 %>% filter(time >= 12) %>%
+  group_by(state) %>%
+  summarise(mean_12_20 = mean(outcome))
+
+DID2 <- bind_cols(mean_1_11, 
+                  mean_12_20 %>% select(-state)) %>%
+  mutate(time_diff2 = mean_12_20 - mean_1_11)
+
+mean_5_11 <- s5 %>% filter(time >= 5 & time < 12) %>%
+  group_by(state) %>%
+  summarise(mean_5_11 = mean(outcome))
+
+DID3 <- bind_cols(mean_1_4, 
+                  mean_5_11 %>% select(-state)) %>%
+  mutate(time_diff3 = mean_5_11 - mean_1_4)
+
+DID4 <- bind_cols(mean_5_11, 
+                  mean_12_20 %>% select(-state)) %>%
+  mutate(time_diff4 = mean_12_20 - mean_5_11)
+```
+
+```{r, echo = F, fig.height = 8, fig.width = 10}
+s5_comp1 <- ggplot(s5 %>% filter(state %in% c(1, 2, 3)), aes(x = time, y = outcome)) +   
+  geom_point(aes(col = factor(state))) + labs(title = "A) Contrast 1 (Earlier treated vs. untreated)") +
+  geom_line(aes(col = factor(state))) + 
+  geom_vline(aes(xintercept = 4.5), lty = 2) +
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32")) +
+  theme_bw() + 
+  scale_x_continuous(limits = c(1, 20)) + 
+  geom_label_repel(data = DID1 %>% filter(state %in% c(1,2,3)), 
+                  aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state)) +
+  geom_label_repel(data = DID1 %>% filter(state %in% c(1,2,3)), 
+                  aes(y = mean_5_20, x = 12.5, label = paste("mean_y:", mean_5_20), col = state))
+
+s5_comp2 <- ggplot(s5 %>% filter(state %in% c(1, 2, 4)), aes(x = time, y = outcome)) +   
+  geom_point(aes(col = factor(state))) + labs(title = "B) Contrast 2 (Later treated vs. untreated)") +
+  geom_line(aes(col = factor(state))) + 
+  geom_vline(aes(xintercept = 11.5), lty = 2) +
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#99000d")) +
+  theme_bw()+ 
+  scale_x_continuous(limits = c(1, 20)) +
+  geom_label_repel(data = DID2 %>% filter(state %in% c(1,2,4)), 
+                   aes(y = mean_1_11, x = 6, label = paste("mean_y:", mean_1_11), col = state)) +
+  geom_label_repel(data = DID2 %>% filter(state %in% c(1,2,4)), 
+                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state))
+
+s5_comp4 <- ggplot(s5 %>% filter(state %in% c(3, 4), time >= 5), aes(x = time, y = outcome)) +   
+  geom_point(aes(col = factor(state))) + labs(title = "C) Contrast 4 (Earlier vs. later treated)") +
+  geom_line(aes(col = factor(state))) + 
+  geom_vline(aes(xintercept = 11.5), lty = 2) +
+  scale_color_manual(values = c("#005a32", "#99000d")) +
+  theme_bw()+ 
+  scale_x_continuous(limits = c(1, 20)) +
+  geom_label_repel(data = DID4 %>% filter(state %in% c(3,4)), 
+                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state)) +
+  geom_label_repel(data = DID4 %>% filter(state %in% c(3,4)), 
+                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state))
+
+s5_comp3 <- ggplot(s5 %>% filter(state %in% c(3, 4), time < 12), aes(x = time, y = outcome)) +   
+  geom_point(aes(col = factor(state))) + labs(title = "D) Contrast 3 (Later vs. earlier treated)") +
+  geom_line(aes(col = factor(state))) + 
+  geom_vline(aes(xintercept = 4.5), lty = 2) +
+  scale_color_manual(values = c("#005a32", "#99000d")) +
+  theme_bw()+ 
+  scale_x_continuous(limits = c(1, 20)) +
+  geom_label_repel(data = DID3 %>% filter(state %in% c(3,4)), 
+                   aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state)) +
+  geom_label_repel(data = DID3 %>% filter(state %in% c(3,4)), 
+                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state))
+
+s5_comp1 + s5_comp2 + s5_comp3 + s5_comp4 + plot_layout(guides = "collect")
+```
+
+**Contrast 1:**
+
+* Pre-post difference for never-treated state 1 is: 43.5-13.5=30
+* Pre-post difference for never-treated state 2 is: 44.5-14.5=30
+* Implying the average pre-post difference equals 30 for the never-treated states
+* Pre-post difference for treated state 3 is 49.5-16.5 = 33
+* $DID_{3 vs 1,2} = 33-30=3$
+
+**Contrast 2:**
+
+* Pre-post difference for never-treated state 1 is: 54-24=30
+* Pre-post difference for never-treated state 2 is: 55-25=30
+* Implying the average pre-post difference equals 30 for the never-treated states
+* Pre-post difference for treated state 4 is 66-33= 33
+* $DID_{4 vs 1,2} = 33-30=3$
+
+**Contrast 3:**
+
+* Pre-post difference for later-treated state 4 is: 39-22.5=16.5
+* Pre-post difference for earlier-treated state 2 is: 36-16.5=19.5
+* $DID_{3 vs 4} = 19.5-16.5=3$
+
+**Contrast 4:**
+
+* Pre-post difference for earlier-treated state 2 is: 60-36=24
+* Pre-post difference for later-treated state 4 is: 66-39=27
+* $DID_{4 vs 3} = 27-24=3$
+
+```{r}
+s5_mod <- lm(outcome ~  policy + state + factor(time), data = s5)
+tidy(s5_mod)
+```
+
+The coefficient of the policy term is `r s5_mod$coefficients["policy1"]`
+showing that the regression model estimates the ATT.
+
+Using the `bacon()`function, we can see see the four comparisons being made and
+the effect estimates for each comparison. The weight column in the output shows
+how much weight each estimate contributes to the ATT. Here, the treated vs 
+untreated comparisons are the most heavily weighted. 
+
+```{r}
+s5 %<>% mutate(state_n = as.numeric(as.character(state)),
+               policy_n = as.numeric(as.character(policy)))
+#bacon decomp says no problems
+#only comparing treated vs untreated and the average effect estimate is 2
+s5_bacon <- bacon(outcome ~ policy_n,
+      data = s5,
+      id_var = "state_n",
+      time_var = "time")
+```
+
+We can also see a list of each comparison and it's weight: 
+
+```{r}
+s5_bacon
+```
+
+For pedagogical purposes, we also show the estimate if we applied the Callaway Sant’Anna estimator using the `att_gt()` function to estimate group-time ATTs.
+
+```{r}
+s5_cs <- att_gt(yname = "outcome", 
+             tname = "time", 
+             idname = "state_n", 
+             gname = "time_first_treat", 
+             data = s5, 
+             anticipation = 0)
+
+s5_cs_ag <- aggte(s5_cs, type="simple")
+summary(s5_cs_ag)
+```
+
+Here, we see the ATT is equal to `r s5_cs_ag$overall.att` as estimated by the 
+TWFE model.
+
+### Scenario 6
+
+Scenario 6 is similar to Scenario 5 except now the treatment effect increases
+as time goes on, i.e., it is dynamic. The magnitude of the treatment effect is
+the same for both treated groups.
+
+```{r}
+s6 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen6", 
+                col_types = c("text", "numeric", "text", "numeric", "text", "numeric"))
+```
+
+```{r, echo=F}
+ggplot(s6, aes(x = time, y = outcome)) + 
+  geom_point(aes(col = factor(state))) + labs(title = "Scenario 6 (Dynamic)") +
+  geom_line(aes(col = factor(state))) + 
+  geom_vline(aes(xintercept = 4.5), lty = 2, col = "#005a32") + 
+  geom_vline(aes(xintercept = 11.5), lty = 2, col = "#99000d") +
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) +
+  theme_bw()
+
+```
+
+```{r, echo=F}
+s6_mean_1_4 <- s6 %>% filter(time < 5) %>%
+  group_by(state) %>%
+  summarise(mean_1_4 = mean(outcome))
+
+s6_mean_5_20 <- s6 %>% filter(time >= 5) %>%
+  group_by(state) %>%
+  summarise(mean_5_20 = mean(outcome))
+
+s6_DID1 <- bind_cols(s6_mean_1_4, s6_mean_5_20 %>% select(-state)) %>%
+  mutate(time_diff = mean_5_20 - mean_1_4)
+
+
+s6_mean_1_11 <- s6 %>% filter(time < 12) %>%
+  group_by(state) %>%
+  summarise(mean_1_11 = mean(outcome))
+
+s6_mean_12_20 <- s6 %>% filter(time >= 12) %>%
+  group_by(state) %>%
+  summarise(mean_12_20 = mean(outcome))
+
+s6_DID2 <- bind_cols(s6_mean_1_11, 
+                     s6_mean_12_20 %>% select(-state)) %>%
+  mutate(time_diff2 = mean_12_20 - mean_1_11)
+
+s6_mean_5_11 <- s6 %>% filter(time >= 5 & time < 12) %>%
+  group_by(state) %>%
+  summarise(mean_5_11 = mean(outcome))
+
+s6_DID3 <- bind_cols(s6_mean_1_4, 
+                     s6_mean_5_11 %>% select(-state)) %>%
+  mutate(time_diff3 = mean_5_11 - mean_1_4)
+
+s6_DID4 <- bind_cols(s6_mean_5_11, 
+                     s6_mean_12_20 %>% select(-state)) %>%
+  mutate(time_diff4 = mean_12_20 - mean_5_11)
+```
+
+```{r, echo = F, fig.height = 8, fig.width = 10}
+s6_comp1 <- ggplot(s6 %>% filter(state %in% c(1, 2, 3)), aes(x = time, y = outcome)) +   
+  geom_point(aes(col = factor(state))) + labs(title = "A) Comparison 1 (Treated vs. never-treated)") +
+  geom_line(aes(col = factor(state))) + 
+  geom_vline(aes(xintercept = 4.5), lty = 2) +
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32")) +
+  theme_bw() + 
+  scale_x_continuous(limits = c(1, 20))  + 
+  geom_label_repel(data = s6_DID1 %>% filter(state %in% c(1,2,3)), 
+                  aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state)) +
+  geom_label_repel(data = s6_DID1 %>% filter(state %in% c(1,2,3)), 
+                  aes(y = mean_5_20, x = 12.5, label = paste("mean_y:", mean_5_20), col = state))
+
+s6_comp2 <- ggplot(s6 %>% filter(state %in% c(1, 2, 4)), aes(x = time, y = outcome)) +   
+  geom_point(aes(col = factor(state))) + labs(title = "B) Comparison 2 (Treated vs. never-treated)") +
+  geom_line(aes(col = factor(state))) + 
+  geom_vline(aes(xintercept = 11.5), lty = 2) +
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#99000d")) +
+  theme_bw()+ 
+  scale_x_continuous(limits = c(1, 20)) +
+  geom_label_repel(data = s6_DID2 %>% filter(state %in% c(1,2,4)), 
+                   aes(y = mean_1_11, x = 6, label = paste("mean_y:", mean_1_11), col = state)) +
+  geom_label_repel(data = s6_DID2 %>% filter(state %in% c(1,2,4)), 
+                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state))
+
+s6_comp4 <- ggplot(s6 %>% filter(state %in% c(3, 4), time >= 5), aes(x = time, y = outcome)) +   
+  geom_point(aes(col = factor(state))) + labs(title = "C) Comparison 4 (Later vs. earlier-treated)") +
+  geom_line(aes(col = factor(state))) + 
+  geom_vline(aes(xintercept = 11.5), lty = 2) +
+  scale_color_manual(values = c("#005a32", "#99000d")) +
+  theme_bw()+ 
+  scale_x_continuous(limits = c(1, 20)) +
+  geom_label_repel(data = s6_DID4 %>% filter(state %in% c(3,4)), 
+                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state)) +
+  geom_label_repel(data = s6_DID4 %>% filter(state %in% c(3,4)), 
+                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state))
+
+s6_comp3 <- ggplot(s6 %>% filter(state %in% c(3, 4), time < 12), aes(x = time, y = outcome)) +   
+  geom_point(aes(col = factor(state))) + labs(title = "D) Comparison 3 (Earlier vs. later-treated)") +
+  geom_line(aes(col = factor(state))) + 
+  geom_vline(aes(xintercept = 4.5), lty = 2) +
+  scale_color_manual(values = c("#005a32", "#99000d")) +
+  theme_bw()+ 
+  scale_x_continuous(limits = c(1, 20)) +
+  geom_label_repel(data = s6_DID3 %>% filter(state %in% c(3,4)), 
+                   aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state)) +
+  geom_label_repel(data = s6_DID3 %>% filter(state %in% c(3,4)), 
+                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state))
+
+s6_comp1 + s6_comp2 + s6_comp3 + s6_comp4 + plot_layout(guides = "collect")
+```
+
+**Contrast 1:**
+
+* Pre-post difference for never-treated state 1 is: 43.5-13.5=30
+* Pre-post difference for never-treated state 2 is: 44.5-14.5=30
+* Implying the average pre-post difference equals 30 for the never-treated states
+* Pre-post difference for treated state 3 is 57-16.5 = 40.5
+* $DID_{3 vs 1,2} = 40.5-30 = 10.5$
+
+**Contrast 2:**
+
+* Pre-post difference for never-treated state 1 is: 54-24=30
+* Pre-post difference for never-treated state 2 is: 55-25=30
+* Implying the average pre-post difference equals 30 for the never-treated states
+* Pre-post difference for treated state 4 is 70-33= 37
+* $DID_{4 vs 1,2} = 37-30 = 7$
+
+**Contrast 3:**
+
+* Pre-post difference for later-treated state 4 is: 39-22.5=16.5
+* Pre-post difference for earlier-treated state 3 is: 39-16.5=22.5
+* $DID_{3 vs 4} = 22.5-16.5 = 6$
+
+**Contrast 4:**
+
+* Pre-post difference for earlier-treated state 3 is: 71-39=32
+* Pre-post difference for later-treated state 4 is: 70-39=31
+* $DID_{4 vs 3} = 31-32 = -1$
+
+Contrasts 1 and 2 are okay because they are clean comparisons between never-treated
+and treated states. Contrasts 3 and 4 are trickier. Contrast 3 compares the 
+earlier treated state to the later treated state. It is okay because parallel
+trends holds and it only uses the time before the later state is treated to 
+inform the estimation. Contrast 4 is the problem -- it uses post-treatment time
+from state 3 as the "pre" time for the comparison. The issue is that this post
+time includes the effects of the treatment, and since the effect is dynamic it
+does not satisfy the parallel trends assumption. However this contrast still 
+contributes to the TWFE regression estimate!
+
+Let's take a look...
+
+```{r}
+s6_mod <- lm(outcome ~ policy + state + factor(time), 
+             data = s6)
+tidy(s6_mod)
+```
+The coefficient of the policy term equals `r s6_mod$coefficients["policy1"] %>% round(2)`.
+We can now use the Goodman Bacon decomposition to see how much weight each of the 
+contrasts contributes to the effect estimate:
+
+```{r}
+s6 %<>% mutate(state_n = as.numeric(as.character(state)),
+               policy_n = as.numeric(as.character(policy)))
+
+s6_bacon <- bacon(outcome ~ policy_n,
+      data = s6,
+      id_var = "state_n",
+      time_var = "time")
+```
+It's more helpful to view the four contrasts separately:
+
+```{r}
+s6_bacon
+```
+So we can see the estimates of the TE for each contrast are as we calculated 
+them earlier. 
+
+We can also confirm that you get the TWFE estimate by taking the weighted 
+average of the Goodman-Bacon decomposition components:
+
+```{r}
+#see the TWFE estimate
+sum(s6_bacon$estimate*s6_bacon$weight)
+```
+Okay, so we know the TWFE regression estimate is wrong, in particular because it is incorporating a 
+contrast that we wouldn't want to make in practice between an earlier treated and a later treated group. To overcome this we can use the Callaway and Sant'Anna estimator. 
+
+First, we running the `att_gt()` function and display its output using 
+`summary()`. The ATT is estimated for each combination of treated state 
+and time. It also includes estimates for pre-policy time, which helps with the 
+evaluation of the parallel trends assumption or to see if there are any lead
+effects ("anticipation") of the treatment on the outcome. 
+
+```{r}
+s6_cs <- att_gt(yname = "outcome", 
+             tname = "time", 
+             idname = "state_n", 
+             gname = "time_first_treat", 
+             data = s6, 
+             anticipation = 0)
+
+summary(s6_cs)
+```
+
+Callaway and Sant'Anna provide many options for aggregating the group-time 
+effects. The simplest option is specify `type = simple`. This estimate considered
+only the clean contrasts of 1 and 2 and combines them by weighting by the total
+time in the post-treatment period. For contrast 1, there are 16 
+time periods post treatment and for contrast 2, there are 9 periods 
+post-treatment. Thus this estimate is the weighted average: $10.5\times(16/25) + 7\times(9/25)=9.24$
+
+```{r}
+#aggregate the group time average treatment effects
+#type = "simple": weighted average of all group-time average treatment effects
+#with weights proportional to the group size
+s6_cs_ag <- aggte(s6_cs, type="simple")
+summary(s6_cs_ag)
+```
+Alternatively, we can specify `type = "group"` to get separate effect estimates 
+according to time of implementation. Note that `group` denotes the time of 
+the policy change for the treated states.
+
+```{r}
+s6_cs_ag2 <- aggte(s6_cs, type = "group")
+summary(s6_cs_ag2)
+```
+
+Alternatively, you can estimate the dynamic effect separately for each time 
+since the treatment has been introduced. Remember that this effect estimation
+is also done for pre-treatment time, so don't be alarmed by all the rows in this 
+table!
+
+```{r}
+s6_cs_ag3 <- aggte(s6_cs, type="dynamic")
+summary(s6_cs_ag3)
+```
+In this case, it is very helpful to plot the effect estimates over time:
+
+```{r}
+ggdid(s6_cs_ag3)
+```
+
+For exposition's sake, we also show the estimate using `type = "calendar"`.
+For this specific example, I don't love this aggregation -- I think for dynamic
+effects it makes things a little wonky and doesn't reveal anything super helpful:
+
+```{r}
+#calendar time specific
+#i don't love this one...but CS say they prefer it here
+#https://bcallaway11.github.io/did/articles/did-basics.html
+s6_cs_ag4 <- aggte(s6_cs, type = "calendar")
+summary(s6_cs_ag4)
+ggdid(s6_cs_ag4)
+```
+
+
+### TWFE with `time_since_policy` specification
+
+But what if we model TWFE with the `time_since_change` indicators?
+
+```{r}
+s6_mod2 <- lm(outcome ~ time_since_policy + state + factor(time), 
+             data = s6)
+tidy(s6_mod2) %>% filter(str_detect(term, "time_since")) %>% 
+  mutate(time = as.numeric(gsub("time_since_policy", "", term))) %>% 
+  arrange(time) 
+```
+In this setting, the regression model still works! The estimates from the policy
+indicator variables equal the output from the Callaway Sant'Anna when specified 
+using `type = "dynamic"`
+
+**Takeway:** When the treatment effect is staggered and dynamic, you can still 
+capture the effect estimate using a TWFE model so long as the policy effect is 
+modeled using the `time since treatment` variable. 
+
+## Scenario 7
+
+Scenario 7 is like Scenario 6 except now the treatment effect is dynamic AND
+heterogeneous. In this scenario, the state that implements the policy change 
+first has a stronger treatment effect (i.e., a steeper change in slope)
+
+```{r}
+s7 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen7", 
+                col_types = c("text", "numeric", "text", "numeric", "text", "numeric"))
+```
+
+```{r, echo=F}
+ggplot(s7, aes(x = time, y = outcome)) + 
+  geom_point(aes(col = factor(state))) + labs(title = "Scenario 7 (Staggered, dynamic, and heterogeneous)") +
+  geom_line(aes(col = factor(state))) + 
+  geom_vline(aes(xintercept = 4.5), lty = 2, col = "#005a32") + 
+  geom_vline(aes(xintercept = 11.5), lty = 2, col = "#99000d") +
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) +
+  theme_bw()
+```
+```{r, echo=F}
+s7_mean_1_4 <- s7 %>% filter(time < 5) %>%
+  group_by(state) %>%
+  summarise(mean_1_4 = mean(outcome))
+
+s7_mean_5_20 <- s7 %>% filter(time >= 5) %>%
+  group_by(state) %>%
+  summarise(mean_5_20 = mean(outcome))
+
+s7_DID1 <- bind_cols(s7_mean_1_4, s7_mean_5_20 %>% select(-state)) %>%
+  mutate(time_diff = mean_5_20 - mean_1_4)
+
+s7_mean_1_11 <- s7 %>% filter(time < 12) %>%
+  group_by(state) %>%
+  summarise(mean_1_11 = mean(outcome))
+
+s7_mean_12_20 <- s7 %>% filter(time >= 12) %>%
+  group_by(state) %>%
+  summarise(mean_12_20 = mean(outcome))
+
+s7_DID2 <- bind_cols(s7_mean_1_11, 
+                     s7_mean_12_20 %>% select(-state)) %>%
+  mutate(time_diff2 = mean_12_20 - mean_1_11)
+
+s7_mean_5_11 <- s7 %>% filter(time >= 5 & time < 12) %>%
+  group_by(state) %>%
+  summarise(mean_5_11 = mean(outcome))
+
+s7_DID3 <- bind_cols(s7_mean_1_4, 
+                     s7_mean_5_11 %>% select(-state)) %>%
+  mutate(time_diff3 = mean_5_11 - mean_1_4)
+
+s7_DID4 <- bind_cols(s7_mean_5_11, 
+                     s7_mean_12_20 %>% select(-state)) %>%
+  mutate(time_diff4 = mean_12_20 - mean_5_11)
+```
+
+
+```{r, echo = F, fig.height = 8, fig.width = 10}
+s7_comp1 <- ggplot(s7 %>% filter(state %in% c(1, 2, 3)), aes(x = time, y = outcome)) +   
+  geom_point(aes(col = factor(state))) + labs(title = "A) Contrast 1 (Treated vs. never-treated)") +
+  geom_line(aes(col = factor(state))) + 
+  geom_vline(aes(xintercept = 4.5), lty = 2) +
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32")) +
+  theme_bw() + 
+  scale_x_continuous(limits = c(1, 20))  + 
+  geom_label_repel(data = s7_DID1 %>% filter(state %in% c(1,2,3)),
+                  aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state)) +
+  geom_label_repel(data = s7_DID1 %>% filter(state %in% c(1,2,3)),
+                  aes(y = mean_5_20, x = 12.5, label = paste("mean_y:", mean_5_20), col = state))
+
+s7_comp2 <- ggplot(s7 %>% filter(state %in% c(1, 2, 4)), aes(x = time, y = outcome)) +   
+  geom_point(aes(col = factor(state))) + labs(title = "B) Contrast 2 (Treated vs. never-treated)") +
+  geom_line(aes(col = factor(state))) + 
+  geom_vline(aes(xintercept = 11.5), lty = 2) +
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#99000d")) +
+  theme_bw()+ 
+  scale_x_continuous(limits = c(1, 20)) +
+  geom_label_repel(data = s7_DID2 %>% filter(state %in% c(1,2,4)),
+                   aes(y = mean_1_11, x = 6, label = paste("mean_y:", mean_1_11), col = state)) +
+  geom_label_repel(data = s7_DID2 %>% filter(state %in% c(1,2,4)),
+                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state))
+
+s7_comp4 <- ggplot(s7 %>% filter(state %in% c(3, 4), time >= 5), aes(x = time, y = outcome)) +   
+  geom_point(aes(col = factor(state))) + labs(title = "C) Contrast 4 (Later vs. earlier-treated)") +
+  geom_line(aes(col = factor(state))) + 
+  geom_vline(aes(xintercept = 11.5), lty = 2) +
+  scale_color_manual(values = c("#005a32", "#99000d")) +
+  theme_bw()+ 
+  scale_x_continuous(limits = c(1, 20)) +
+  geom_label_repel(data = s7_DID4 %>% filter(state %in% c(3,4)),
+                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state)) +
+  geom_label_repel(data = s7_DID4 %>% filter(state %in% c(3,4)),
+                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state))
+
+s7_comp3 <- ggplot(s7 %>% filter(state %in% c(3, 4), time < 12), aes(x = time, y = outcome)) +   
+  geom_point(aes(col = factor(state))) + labs(title = "D) Contrast 3 (Earlier vs. later-treated)") +
+  geom_line(aes(col = factor(state))) + 
+  geom_vline(aes(xintercept = 4.5), lty = 2) +
+  scale_color_manual(values = c("#005a32", "#99000d")) +
+  theme_bw() + 
+  scale_x_continuous(limits = c(1, 20)) +
+  geom_label_repel(data = s7_DID3 %>% filter(state %in% c(3,4)),
+                   aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state)) +
+  geom_label_repel(data = s7_DID3 %>% filter(state %in% c(3,4)),
+                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state))
+
+s7_comp1 + s7_comp2 + s7_comp3 + s7_comp4 + plot_layout(guides = "collect")
+```
+
+**Contrast 1:**
+
+* Pre-post difference for never-treated state 1 is: 43.5-13.5=30
+* Pre-post difference for never-treated state 2 is: 44.5-14.5=30
+* Implying the average pre-post difference equals 30 for the never-treated states
+* Pre-post difference for treated state 3 is 64.5-16.5 = 48
+* $DID_{3 vs 1,2} = 48-30 = 18$
+
+**Contrast 2:**
+
+* Pre-post difference for never-treated state 1 is: 54-24=30
+* Pre-post difference for never-treated state 2 is: 55-25=30
+* Implying the average pre-post difference equals 30 for the never-treated states
+* Pre-post difference for treated state 4 is 68-33= 35
+* $DID_{4 vs 1,2} = 35-30 = 5$
+
+**Contrast 3:**
+
+* Pre-post difference for later-treated state 4 is: 39-22.5=16.5
+* Pre-post difference for earlier-treated state 3 is: 42-16.5=25.5
+* $DID_{3 vs 4} = 25.5-16.5 = 9$
+
+**Contrast 4:**
+
+* Pre-post difference for earlier-treated state 3 is: 82-42=40
+* Pre-post difference for later-treated state 4 is: 68-39=29
+* $DID_{4 vs 3} = 29-40 = -11$
+
+Similar to the previous scenario, parallel trends is satisfied for contrasts 1-3, 
+so we can be okay with these contrasts contributed to the average effect estimate. 
+Like last time, contrast 4 is the problem, and here the problem is intensified
+because the "control" state -- which was treated in an earlier period -- is 
+undergoing a large treatment effect in the "pre" period (times 5-11). This 
+makes the pre-post different in the control state larger than the pre-post difference
+in the comparison state -- because the control state is still experiencing a stronger
+(i.e., steeper slope) treatment effect than the state that is treated at time 12. 
+This makes the DID for this group and time look negative -- like the treatment
+is associated with a decrease in the outcome!
+
+Let's take a look at the regression output:
+
+```{r}
+s7_mod <- lm(outcome ~ policy + state + factor(time), 
+             data = s7)
+tidy(s7_mod)
+```
+The coefficient of the policy term equals `r s7_mod$coefficients["policy1"] %>% round(2)`.
+We can now use the Goodman Bacon decomposition to see how much weight each of 
+the contrasts contributes to the effect estimate:
+
+```{r}
+s7 %<>% mutate(state_n = as.numeric(as.character(state)),
+               policy_n = as.numeric(as.character(policy)))
+
+s7_bacon <- bacon(outcome ~ policy_n,
+      data = s7,
+      id_var = "state_n",
+      time_var = "time")
+```
+
+```{r}
+s7_bacon
+```
+
+```{r}
+#see the TWFE estimate
+sum(s7_bacon$estimate*s7_bacon$weight)
+```
+Now that we know how to use the Callaway and Sant'Anna code, we can apply it to
+this example as well. Let's start by running the `att_gt()` function, remembering
+that the output is for every combination of group and time:
+
+```{r}
+s7_cs <- att_gt(yname = "outcome", 
+             tname = "time", 
+             idname = "state_n", 
+             gname = "time_first_treat", 
+             data = s7, 
+             anticipation = 0)
+
+summary(s7_cs)
+```
+
+Let's aggregate these ATTs using `type = simple`. This estimate considered
+only the clean contrasts of 1 and 2 and combines them by weighting by the total
+time in the post-treatment period. For contrast 1, there are 16 
+time periods post treatment and for contrast 2, there are 9 periods 
+post-treatment. Thus this estimate is the weighted average: $18\times(16/25) + 5\times(9/25)=13.32$
+
+```{r}
+#aggregate the group time average treatment effects
+#type = "simple": weighted average of all group-time average treatment effects
+#with weights proportional to the group size
+s7_cs_ag <- aggte(s7_cs, type="simple")
+summary(s7_cs_ag)
+```
+Alternatively, we can specify `type = "group"` to get separate effect estimates 
+according to time of implementation and see that these match our by-hand calculations: 
+
+```{r}
+s7_cs_ag2 <- aggte(s7_cs, type = "group")
+summary(s7_cs_ag2)
+```
+
+Alternatively, you can estimate the dynamic effect separately for each time 
+since the treatment has been introduced. Remember that this effect estimation
+is also done for pre-treatment time, so don't be alarmed by all the rows in this 
+table!
+
+```{r}
+s7_cs_ag3 <- aggte(s7_cs, type="dynamic")
+summary(s7_cs_ag3)
+```
+In this case, it is very helpful to plot the effect estimates over time:
+
+```{r}
+ggdid(s7_cs_ag3)
+```
+
+For exposition's sake, let's also show the estimate using `type = "calendar"`.
+For this specific example, I don't love this aggregation -- I think for dynamic
+effects it makes things a little wonky and doesn't reveal anything super helpful:
+
+```{r}
+#calendar time specific
+#i don't love this one...but CS say they prefer it here
+#https://bcallaway11.github.io/did/articles/did-basics.html
+s7_cs_ag4 <- aggte(s7_cs, type = "calendar")
+summary(s7_cs_ag4)
+ggdid(s7_cs_ag4)
+```
+
+
+### TWFE with `time_since_policy` specification
+
+But what if model TWFE with the `time_since_change` indicators? Here I run the 
+regression and pull out the effect estimates since the regression output is so large
+
+```{r}
+s7_mod2 <- lm(outcome ~ time_since_policy + state + factor(time), 
+             data = s7)
+tidy(s7_mod2) %>% filter(str_detect(term, "time_since")) %>% 
+  mutate(time = as.numeric(gsub("time_since_policy", "", term))) %>% 
+  arrange(time) 
+```
+The effect estimates on the policy indicators do not equal an average of the ATTs
+from the two states for each time period. For this example, this specification 
+gives estimates that are systematically lower than those produced by the Callaway
+Sant'Anna model. 
+
+**Takeway:** When the treatment effect is staggered, dynamic, and hetergeneous, 
+the TWFE regression specification will produced biased results, as will the 
+specification using a categorical variable for time since treatment. In this 
+case, it is best to use another approach like the Callaway Sant'Anna function.
+
+## To Do
+
+* Explain how the weight is calculated in the Bacon decomp -- when would it place 
+a lot of weight on the forbidden contrasts? I have another R file called Bacon
+weights where I try and implement the weight formulas but I get stuck...
+* When will the weight be negative? I still haven't figured out what scenario this
+corresponds to. Possibly in a setting where there are no ever-treated states?
+* Need to say something about standard error estimation - the code as written is not concerned
+with SE at all. So may want to say something or modify the code.  
+
+```{r}
+# s8 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen8", 
+#                 col_types = c("text", "text", "text", "numeric"))
+# 
+# s8 %<>% mutate(state_n = as.numeric(as.character(state)),
+#                policy_n = as.numeric(as.character(policy)))
+
+# s8_bacon <- bacon(formula = outcome ~ policy_n, 
+#                   data = s8,
+#                   id_var = "state_n",
+#                   time_var = "time")
+```
+```
+
+```{r, echo=F}
+ggplot(s7, aes(x = time, y = outcome)) + 
+  geom_point(aes(col = factor(state))) + labs(title = "Scenario 7 (Staggered, dynamic, and heterogeneous)") +
+  geom_line(aes(col = factor(state))) + 
+  geom_vline(aes(xintercept = 4.5), lty = 2, col = "#005a32") + 
+  geom_vline(aes(xintercept = 11.5), lty = 2, col = "#99000d") +
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) +
+  theme_bw()
+```
+
