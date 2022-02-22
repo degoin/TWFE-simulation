@@ -1,0 +1,60 @@
+---
+title: "Result plots"
+output: pdf_document
+---
+
+```{r, echo=F, warning=F, message=F}
+library(here)
+library(knitr)
+library(magrittr)
+```
+
+## Coverage
+
+```{r, out.width="90%", echo=F, fig.align='center'}
+include_graphics(here("results", "twfe_sim_coverage_PTB_n100.png"))
+```
+
+## Bias
+
+```{r, out.width="90%", echo=F, fig.align='center'}
+include_graphics(here("results", "twfe_sim_bias_PTB_n100.png"))
+```
+
+## MSE
+
+```{r, out.width="90%", echo=F, fig.align='center'}
+include_graphics(here("results", "twfe_sim_mse_PTB_n100.png"))
+```
+
+## Power
+
+```{r, out.width="90%", echo=F, fig.align='center'}
+include_graphics(here("results", "twfe_sim_power_PTB_n100.png"))
+```
+
+# Dynamic Effects
+
+## Coverage
+
+```{r, out.width="90%", echo=F, fig.align='center'}
+include_graphics(here("results", "dyn_coverage_n100.png"))
+```
+
+## Bias
+
+```{r, out.width="90%", echo=F, fig.align='center'}
+include_graphics(here("results", "dyn_bias_n100_PTB.png"))
+```
+
+## MSE
+
+```{r, out.width="90%", echo=F, fig.align='center'}
+include_graphics(here("results", "dyn_mse_n100_PTB.png"))
+```
+
+## Power
+
+```{r, out.width="90%", echo=F, fig.align='center'}
+include_graphics(here("results", "dyn_power_n100_PTB.png"))
+```
