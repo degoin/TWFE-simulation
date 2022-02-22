@@ -6,7 +6,11 @@ library(sandwich)
 library(ggrepel)
 library(staggered)
 
-set.seed(15295632)
+#source in helpfer functions used in Ben-Micheal approach
+source("helper_func_ed.R")
+
+#set.seed(15295632) #broke at iteration 45 (see error sent to Dana)
+set.seed(461)
 
 # combine all years of state-month PTB rates into one data frame
 df_ls <- list()
@@ -118,7 +122,7 @@ dat <- dat %>% group_by(FIPS) %>% mutate(month_ind = 1:num_months)
 # DTE = vector of dynamic effects, which we set to -0.01, -0.015, and -0.02
 sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print(iteration)
-  
+  print("-----BEGINNING OF THE ITERATION-----")
   # create state-level intercept and noise for each state-month 
   dat <- dat %>% group_by(state_name) %>% mutate(intercept = mean(ptb_prop, na.rm=T), 
                                                  e_Y = rnorm(n = num_months, mean = 0, sd = sqrt(var(ptb_prop, na.rm=T))), 
@@ -151,6 +155,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
 
   
   # estimate effects using TWFE 
+  print("TWFE")
   m1 <- glm(Y ~ A + factor(State) + factor(month_ind), data=dat, family="gaussian")
   # get variance from sandwich estimator -- type = "HC0"
   #m1_var<- sandwich(m1)
@@ -174,16 +179,18 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   #sqrt(m1_var["A","A"])
   #sqrt(test["A","A"])
   
+  print("gt ATT")
   # estimate effects using group-time ATT from Callaway and Sant'Anna
   m2 <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat, anticipation=0)
   m2_ag <- aggte(m2, type="simple")
   #m2_ag$overall.att
   
+  print("sun abraham")
   # estimate effects using Sun and Abraham approach 
   dat <- dat %>% mutate(A_time_sa = ifelse(A_time!=0, A_time, Inf))
   m3 <- staggered_sa(df = dat, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "simple")
   
-  
+  print("TWFE ever-treated")
   # TWFE if you only include those who eventually get the intervention 
   dat_i <- dat %>% filter(ever_A==1)
   
@@ -192,6 +199,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   #m1_var_i <- sandwich(m1_i)
   m1_var_i <- vcovHC(m1_i, type="HC3")
   
+  print("alt TWFE")
   # alternate TWFE approach  if you only include those who eventually get the intervention 
   # don't include the ever treated parameter because you are limiting to ever treated units
   m1b_i <- glm(Y ~ post_policy, data=dat_i, family="gaussian")
@@ -199,7 +207,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   #m1_var_i <- sandwich(m1_i)
   m1b_var_i <- vcovHC(m1b_i, type="HC3")
   
-  
+  print("gt ATT not yet treated")
   # estimate effects using group-time ATT for only those who are not yet treated
   m2_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_i, anticipation=0, control_group = "notyettreated")
   m2_ea_ag <- aggte(m2_ea, type="simple")
@@ -212,6 +220,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   # define truth 
   cte_truth <- CTE
   
+  print("combine results")
   # combine results
   df_cte <- data.frame(rbind(cbind(estimator = "truth", result = cte_truth, lb = NA, ub = NA, power=NA), 
                              cbind(estimator = "TWFE", result = summary(m1)$coefficients["A", "Estimate"], 
@@ -261,27 +270,29 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   # define the heterogeneous treatment effect and generate the outcome 
   dat_hte <- dat %>% mutate(HTE = ifelse(A_time<40 & ever_A==1, HTE[1], ifelse(A_time>=40 & ever_A==1, HTE[2], 0))) %>%  mutate(Y = intercept + A*HTE  + e_Y)
   
+  print("hetergeneous: TWFE")
   # estimate effects using TWFE 
   m1_hte <- glm(Y ~ A  + factor(State) + factor(month_ind), data=dat_hte, family="gaussian")
   #m1_hte_var <- sandwich(m1_hte)
   m1_hte_var <- vcovHC(m1_hte, type="HC3")
   
+  print("hetergeneous: alt TWFE")
   # estimate effects using alternate TWFE approach  
   m1b_hte <- glm(Y ~ ever_A*post_policy, data=dat_hte, family="gaussian")
   # get variance from sandwich estimator -- type = "HC3"
   m1b_hte_var <- vcovHC(m1b_hte, type="HC3")
 
-  
+  print("hetergeneous: gtATT")
   # estimate effects using group-time ATT
   m2_hte <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_hte, anticipation=0)
   m2_hte_ag <- aggte(m2_hte, type="group")
   #ggdid(m2_hte_ag)
   
-  
+  print("hetergeneous: SA")
   # estimate effects using Sun and Abraham approach 
   m3_hte <- staggered_sa(df = dat_hte, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "simple")
   
-  
+  print("hetergeneous: TWFE ever treated")
   # TWFE if you only include those who eventually get the intervention 
   dat_hte_i <- dat_hte %>% filter(ever_A==1)
   
@@ -290,13 +301,15 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   #m1_hte_var_i <- sandwich(m1_hte_i)
   m1_hte_var_i <- vcovHC(m1_hte_i, type="HC3")
   
+  print("hetergeneous: TWFE alt 2")
   # alternate TWFE approach  if you only include those who eventually get the intervention 
   # don't include the ever treated parameter because you are limiting to ever treated units
   m1b_hte_i <- glm(Y ~ post_policy, data=dat_hte_i, family="gaussian")
   # get variance from sandwich estimator
   #m1_var_i <- sandwich(m1_i)
   m1b_hte_var_i <- vcovHC(m1b_hte_i, type="HC3")
-  
+ 
+  print("hetergeneous: gtATT among those who eventuall get intervention") 
   # estimate effects using group-time ATT among those who eventually get the intervention 
   m2_hte_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_hte_i, anticipation=0, control_group = "notyettreated")
   m2_hte_ea_ag <- aggte(m2_hte_ea, type="group")
@@ -308,6 +321,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   # calculate different truth for ever-adopted 
   hte_truth_ea <- (HTE[1]*length(dat_hte_i$HTE[dat_hte_i$A_time<40 & dat_hte_i$A_time==dat_hte_i$month_ind]) + HTE[2]*length(dat_hte_i$HTE[dat_hte_i$A_time>=40 & dat_hte_i$A_time<max(m2_hte$group) & dat_hte_i$A_time==dat_hte_i$month_ind]))/length(unique(dat_hte_i$State[dat_hte_i$ever_A==1 & dat_hte_i$A_time<max(m2_hte$group)]))
   
+  print("combine heterogeneous")
   # combine results
   df_hte <- data.frame(rbind(cbind(estimator="truth", result=hte_truth, lb = NA, ub = NA, power=NA), 
                              cbind(estimator = "TWFE", result = summary(m1_hte)$coefficients["A", "Estimate"], 
@@ -375,23 +389,26 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   # AVERAGE EFFECT IN THE POST-PERIOD  
   ##############################################################################################################################
   
+  print("dynamic: TWFE")
   # estimate effects using TWFE 
   m1_dte <- glm(Y ~ A  + factor(State) + factor(month_ind), data=dat_dte, family="gaussian")
   # get variance from sandwich estimator
   m1_dte_var <- vcovHC(m1_dte, type="HC3")
   
+  print("dynamic: alt TWFE")
   # estimate effects using alternte TWFE approach
   m1b_dte <- glm(Y ~ ever_A*post_policy, data=dat_dte, family="gaussian")
   # get variance from sandwich estimator
   m1b_dte_var <- vcovHC(m1b_dte, type="HC3")
   
+  print("dynamic: gtATT")
   # estimate effects using group-time ATT 
   m2_dte <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte, anticipation=0)
   m2_dte_ag <- aggte(m2_dte, type="simple")
   #summary(m2_hte_ag) 
   #ggdid(m2_hte_ag)
   
-  
+  print("dynamic: TWFE eventually treated")
   # TWFE if you only include those who eventually get the intervention 
   dat_dte_i <- dat_dte %>% filter(ever_A==1)
   m1_dte_i <- glm(Y ~ A  +  factor(State) + factor(month_ind), data=dat_dte_i, family="gaussian")
@@ -399,13 +416,14 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   #m1_dte_var_i <- sandwich(m1_dte_i)
   m1_dte_var_i <- vcovHC(m1_dte_i, type="HC3")
   
-  
+  print("dynamic: alt TWFE 2")
   # alternate TWFE approach 
   m1b_dte_i <- glm(Y ~ post_policy, data=dat_dte_i, family="gaussian")
   # get variance from sandwich estimator
   #m1_dte_var_i <- sandwich(m1_dte_i)
   m1b_dte_var_i <- vcovHC(m1b_dte_i, type="HC3")
   
+  print("dynamic gtATT eventually treated")
   # estimate effects using group-time ATT among those who eventually get the intervention 
   m2_dte_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte_i, anticipation=0, control_group = "notyettreated")
   m2_dte_ea_ag <- aggte(m2_dte_ea, type="simple")
@@ -421,6 +439,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                          DTE[2]*sum(dat_dte_i$time_since_A>=12 & dat_dte_i$time_since_A<24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<72, na.rm=T) +
                          DTE[3]*sum(dat_dte_i$time_since_A>=24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte$group), na.rm=T))/sum(dat_dte_i$time_since_A>=0 & dat_dte_i$A_time<max(m2_dte$group), na.rm=T)
   
+  print("dynamic combine")
   # combine results 
   df_dte_avg <- data.frame(rbind(cbind(estimator="truth", result=dte_truth_avg, lb = NA, ub = NA, power=NA), 
                                  cbind(estimator = "TWFE", result = summary(m1_dte)$coefficients["A", "Estimate"], 
@@ -473,6 +492,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   # YEARLY EFFECT IN THE POST-PERIOD  
   ##############################################################################################################################
   
+  print("yearly effect in post period glm")
   # estimate effects using TWFE  
   m1_dte_yr <- glm(Y ~ factor(time_since_A)  + factor(State) + factor(month_ind), data=dat_dte, family="gaussian")
   # I think because of small sample size, the sandwich estimator for variance with small sample size correction returns 
@@ -484,24 +504,26 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   #sqrt(m1_dte_yr_var["factor(time_since_A)0","factor(time_since_A)0"])
   #sqrt(test["factor(time_since_A)0","factor(time_since_A)0"])
   
+  print("yearly effect in post period gtatt")
   # estimate effects using group-time ATT  
   m2_dte_yr <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte, anticipation=0, cband=TRUE)
   m2_dte_yr_ag <- aggte(m2_dte_yr, type="dynamic", cband=TRUE)
   #summary(m2_hte_ag) 
   
+  print("yearly effect in post period Ben Micheal")
   # estimate effects using stacked regression from Ben Michael paper 
   dat_dte <- dat_dte %>% ungroup()
   dat_dte$month <- as.Date(dat_dte$month)
   dat_dte$A_month <- as.Date(dat_dte$A_month)
   
-  source("helper_func_ed.R")
-  
+  print("jackknife")
   m3_dte <- fit_event_jack(outcome = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat_dte, max_time_to = 10000) %>% 
     filter(cohort=="average")
   
   
   #ggdid(m2_dte_yr_ag)
   
+  print("yearly effect TWFE ever treated")
   # estimate TWFE model only among those who ever get the intervention 
   dat_dte_i <- dat_dte_i %>% filter(ever_A==1)
   m1_dte_yr_i <- glm(Y ~ factor(time_since_A)  +  factor(State) + factor(month_ind), data=dat_dte_i, family="gaussian")
@@ -512,6 +534,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   #sqrt(m1_dte_yr_var_i["factor(time_since_A)0","factor(time_since_A)0"])
   #sqrt(test["factor(time_since_A)0","factor(time_since_A)0"])
   
+  print("yearly effect gtatt ever treated")
   # estimate effects using group-time ATT among those who ever get the intervention 
   m2_dte_yr_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte_i, anticipation=0, cband=TRUE, control_group = "notyettreated")
   m2_dte_yr_ea_ag <- aggte(m2_dte_yr_ea, type="dynamic", cband=TRUE)
@@ -588,10 +611,13 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   # output overall results
   overall_result <- data.frame(cbind(df_cte_wide, df_hte_wide, df_hte_ea_wide, df_dte_avg_wide, df_dte_avg_ea_wide, df_dyn_wide))
   return(overall_result)
+  print("-----END OF THE ITERATION-----")
 }
 
 
-system.time(results_ls <- lapply(1:5, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.02, -0.01), DTE = c(-0.01, -0.015, -0.02))))
+system.time(results_ls <- lapply(1:100, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.02, -0.01), DTE = c(-0.01, -0.015, -0.02))))
+#785.424 for 5 iterations (13 minutes/2.6 minutes per iteration) seconds on timberwolf
+#4.4 hours for 100 iterations - starting at 11:50am - should be done by 4:30pm ish
 
 results_df <- data.frame(do.call(rbind, results_ls))
 
@@ -614,7 +640,7 @@ results_df_calc <- results_df_calc %>%  mutate(coverage = as.numeric(lb<=truth &
 
 
 results_df_calc <- results_df_calc %>% filter(method!="truth")
-# rename parameters so they alls how up on same plot 
+# rename parameters so they all show up on same plot 
 results_df_calc$parameter[results_df_calc$parameter=="HTE.EA"] <-  "HTE"
 results_df_calc$parameter[results_df_calc$parameter=="DTE.avg.EA"] <-  "DTE.avg"
 
@@ -625,4 +651,4 @@ results_df_summary <- results_df_calc %>% group_by(parameter, method) %>% summar
                                                                                        power = mean(power))
 
 
-write.csv(results_df_summary, file="../TWFE-simulation/results/twfe_sim_results_summary_PTB.csv", row.names = F)
+write.csv(results_df_summary, file="./results/twfe_sim_results_summary_PTB_n100.csv", row.names = F)
