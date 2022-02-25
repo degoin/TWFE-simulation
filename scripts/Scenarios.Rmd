@@ -15,16 +15,18 @@ output:
 In this companion guide, we illustrate scenarios in which difference in differences
 analysis can be applied. We start with the simplest of scenarios and slowly amp
 up the complexity. For each scenario we describe a target parameter
-to estimate and the parameter estimated by a two-way fixed effects model. We
+to estimate and the parameter estimated by a two-way fixed effects (TWFE) model. We
 also apply the Goodman-Bacon decomposition to this parameter to determine if the
 TWFE estimate is partially composed of estimates that are "forbidden" (e.g., ones
-that compare a newly treated state to a previously treated state) and apply the 
-Callaway and Sant'Anna approach to estimation. 
+that compare a newly treated state to a previously treated state) and apply alternate
+estimation approaches. 
 
 The goal is to illustrate scenarios where the usual TWFE method of estimation 
 provides suitable results and scenarios where this approach is biased. 
 In the latter case, we show alternative methods to estimation to overcome the 
 issue.
+
+In the following examples, state policy changes are the effects of interest. 
 
 ### Load the R packages used in this analysis
 
@@ -49,8 +51,9 @@ library(did)
 
 ## Scenario 1
 
-We first consider the simplest case in which there is one never-treated group, 
-one group that undergoes treatment. The groups are observed during two time 
+We first consider the simplest case in which there is one state that never adopts 
+the policy (the never-treated group), and one state that does implement the policy 
+(the group that undergoes treatment). The groups are observed during two time 
 periods only. 
 
 Below, the data are read in from an excel spreadsheet. Feel free to view the 
@@ -82,18 +85,27 @@ ggplot(s1, aes(x = time, y = outcome)) +
   scale_fill_manual(values = c("#a6cee3","#005a32")) + 
   theme_bw()
 ```
+(WHAT DO YOU THINK ABOUT ADDING LINES CONNECTING THE OBSERVED PRE-POST VALUES FOR EACH STATE? 
+I ALSO THINK WE SHOULD MAKE THE TREATED STATE DISTINCT IN SOME WAY)
 
 The following can be read from the labelled plot:
 
 * Pre-treatment difference of 1
 * Post-treatment difference of 3
-* Causal effect of policy = 3-1 = 2 under the following assumptions
+* Causal effect of policy = 3-1 = 2 
+or equivalently, 
+* state 1 difference of 5
+* state 2 difference of 3
+* Causal effect of policy = 5-3 = 2 
+under the following assumptions
 
 Assumptions
 
-1) parallel trends, or counterfactual parallel trends as described by Ben-Micheal,
+1) parallel trends, or counterfactual parallel trends as described by Ben-Michael (CAN WE SAY WHAT THIS IS? I'M NOT SURE WHAT YOU MEAN OR HOW IT'S DIFFERENT),
 2) No anticipation, 
 3) Policy is the only thing that changes at the time of treatment that affects the outcome
+
+WONDERING IF IT MAKES SENSE TO ALSO PHRASE THESE ASSUMPTIONS IN A EPI-CAUSAL INFERENCE WAY... LIKE NO INTERFERENCE, CONSISTENCY, POSITIVITY, EXCHANGEABILITY, ETC -- IF WE DO THIS, DO WE NEED TO ASSUME LINEARITY? 
 
 ### Two-way fixed effected (TWFE) regression model
 
@@ -148,7 +160,7 @@ s2b_plot <-ggplot(s2b, aes(x = time, y = outcome)) +
 s2a_plot + s2b_plot + plot_layout(guides = "collect")  & 
   scale_y_continuous(limits = range(c(s2a$outcome, s2b$outcome)))
 ```
-
+(AS ABOVE, POSSIBLE TO ADD LINES CONNECTING STATES IN PRE-POST TIMES, AND TO INDICATE WHICH IS TREATED?)
 The following can be read from the labelled plot for Scenario 2A:
 
 * Post-Pre Difference for never-treated state 1: 12-9=3
@@ -182,8 +194,9 @@ The coefficient estimate equals to `r s2b_mod$coefficients["policy1"]` the ATT f
 **Takeaway:** When there are multiple treatment groups and two time points, 
 where >1 of the groups becomes treated, you can calculate the DID estimate by 
 hand or using TWFE regression. If treatment effects are heterogeneous across 
-states, then the estimated effect is the average treatment effect (ATE) across the 
+states, then the estimated effect is the average ATT across the 
 states
+
 
 **Things to discuss with Dana:**
 
@@ -308,8 +321,13 @@ outcomes separately by time since treatment and calculate a separate DID for
 every time point since treatment. The average of these DIDs will equal the 6
 that we calculated using the average outcome over post-treatment time.
 
+WHY WOULD WE WANT TO CALCULATE THE EFFECTS SEPARATELY BY TIME SINCE TREATMENT? I THINK 
+IT'S WORTH SPELLING OUT WHY THAT WOULD BE USEFUL, AND SHOWING AN EXAMPLE OF HOW TO DO IT
+-- OR IS THIS WHAT YOU'RE DOING BELOW? I WOULD CLARIFY
+
 ## TWFE Regression Model
 
+Estimation of the dynamic effect in Scenario 3A:
 ```{r}
 s3a_mod <- lm(outcome ~ policy + state + factor(time), 
              data = s3a)
@@ -319,6 +337,7 @@ tidy(s3a_mod)
 The coefficient of the policy term is `r s3a_mod$coefficients["policy1"]`
 showing that the regression model estimate equaled the causal effect.
 
+Estimation of the dynamic effect in Scenario 3B:
 ```{r}
 s3b_mod <- lm(outcome ~ policy + state + factor(time), 
              data = s3b)
@@ -373,6 +392,7 @@ treatment effect
 s4 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen4",
                 col_types = c("text", "numeric", "text", "numeric", "text", "numeric"))
 ```
+(I WOULD CHANGE THE A MARKERS TO CIRCLES)
 
 ```{r, echo=F}
 s4 %<>% mutate(post = time >= 6)
@@ -495,6 +515,8 @@ example, the treated states introduce the policy at two different time points.
 The treatment effects are non-dynamic and there are two never-treated states and
 two ever-treated states.
 
+(SINCE THIS IS AN EXTENSION OF SCENARIO 5, I WOULD KEEP THE HETEROGENEOUS TX EFFECTS PART
+AND JUST INRODUCE STAGGERED TIMING)
 ```{r}
 s5 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen5",
                 col_types = c("text", "numeric", "text", "numeric", "text", "numeric"))
@@ -858,6 +880,8 @@ s6_bacon
 So we can see the estimates of the TE for each contrast are as we calculated 
 them earlier. 
 
+(WHAT DOES TE MEAN HERE?)
+
 We can also confirm that you get the TWFE estimate by taking the weighted 
 average of the Goodman-Bacon decomposition components:
 
@@ -884,6 +908,8 @@ s6_cs <- att_gt(yname = "outcome",
 
 summary(s6_cs)
 ```
+
+(I'M NOT SURE WHY THIS IS USEFUL TO SHOW)
 
 Callaway and Sant'Anna provide many options for aggregating the group-time 
 effects. The simplest option is specify `type = simple`. This estimate considered
@@ -936,6 +962,8 @@ summary(s6_cs_ag4)
 ggdid(s6_cs_ag4)
 ```
 
+(I AGREE, NOT SURE WHAT IT ADDS AND IS CONFUSING. I'M GUESSING IT LOOKS THIS WAY BECAUSE OF THE TWO 
+TREATED GROUPS HAVING DIFFERENT NUMBERS OF POST-TREATMENT OUTCOMES?)
 
 ### TWFE with `time_since_policy` specification
 
@@ -955,6 +983,9 @@ using `type = "dynamic"`
 **Takeway:** When the treatment effect is staggered and dynamic, you can still 
 capture the effect estimate using a TWFE model so long as the policy effect is 
 modeled using the `time since treatment` variable. 
+
+(KEY QUESTION IS WHAT PARAMETER ARE YOU INTERESTED IN? DO YOU WANT A DYNAMIC ESTIMATE, 
+OR ARE YOU MORE INTERESTED IN A SUMMARY PARAMETER? )
 
 ## Scenario 7
 
@@ -1113,6 +1144,9 @@ s7_mod <- lm(outcome ~ policy + state + factor(time),
 tidy(s7_mod)
 ```
 The coefficient of the policy term equals `r s7_mod$coefficients["policy1"] %>% round(2)`.
+
+(CAN WE SAY WHAT THE COEFFICIENT SHOULD BE?)
+
 We can now use the Goodman Bacon decomposition to see how much weight each of 
 the contrasts contributes to the effect estimate:
 
@@ -1230,6 +1264,8 @@ weights where I try and implement the weight formulas but I get stuck...
 corresponds to. Possibly in a setting where there are no ever-treated states?
 * Need to say something about standard error estimation - the code as written is not concerned
 with SE at all. So may want to say something or modify the code.  
+* CONSIDER IMPLEMENTING THE STAGGERED REGRESSION APPRAOCH
+* DISCUSSION OF DIFFERENT TARGET PARAMETERS, AND WHY SOME MIGHT BE OF MORE INTEREST THAN OTHERS
 
 ```{r}
 # s8 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen8", 
