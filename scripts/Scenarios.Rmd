@@ -80,13 +80,14 @@ categorical/factor variables in the analysis (or, using econ-speak using
 
 ```{r, echo = F}
 ggplot(s1, aes(x = time, y = outcome)) + 
-  geom_point(aes(fill = state), size = 4, pch = 21) +
+  geom_line(aes(group = state, col = state)) +
+  geom_point(aes(fill = state, pch = state), size = 4) +
   geom_text(aes(label = outcome), nudge_x = 0.075) +
   scale_fill_manual(values = c("#a6cee3","#005a32")) + 
+  scale_color_manual(values = c("#a6cee3","#005a32")) +
+  scale_shape_manual(values = c(21, 23)) + 
   theme_bw()
 ```
-(WHAT DO YOU THINK ABOUT ADDING LINES CONNECTING THE OBSERVED PRE-POST VALUES FOR EACH STATE? 
-I ALSO THINK WE SHOULD MAKE THE TREATED STATE DISTINCT IN SOME WAY)
 
 The following can be read from the labelled plot:
 
@@ -94,18 +95,48 @@ The following can be read from the labelled plot:
 * Post-treatment difference of 3
 * Causal effect of policy = 3-1 = 2 
 or equivalently, 
-* state 1 difference of 5
-* state 2 difference of 3
+* State 1 difference of 5
+* State 2 difference of 3
 * Causal effect of policy = 5-3 = 2 
 under the following assumptions
 
-Assumptions
+Three standard assumptions are typical stated in DID papers and required for the 
+DID estimate [in the simple case?] to estimate the causal effect of interest:
 
-1) parallel trends, or counterfactual parallel trends as described by Ben-Michael (CAN WE SAY WHAT THIS IS? I'M NOT SURE WHAT YOU MEAN OR HOW IT'S DIFFERENT),
-2) No anticipation, 
-3) Policy is the only thing that changes at the time of treatment that affects the outcome
+1) **Parallel trends, or counterfactual parallel trends as described by 
+Ben-Michael:** Had the treated group not been treated, the trends for the treated 
+state would be the same as the trends for the never-treated state.
+2) **No anticipation:** The effect of the policy change begins after it is introduced; 
+there is no anticipatory effect before the policy is introduced. Anticipatory
+effects can occur if individuals change their behavior in anticipation of a 
+policy change.
+3) **[NAME FOR THIS ONE:]** The policy is the only thing that changes at the time of
+treatment that affects the outcome
 
-WONDERING IF IT MAKES SENSE TO ALSO PHRASE THESE ASSUMPTIONS IN A EPI-CAUSAL INFERENCE WAY... LIKE NO INTERFERENCE, CONSISTENCY, POSITIVITY, EXCHANGEABILITY, ETC -- IF WE DO THIS, DO WE NEED TO ASSUME LINEARITY? 
+If you're familiar with causal inference, you will also know about the main 
+assumptions required when estimating causal effects. Ben-Micheal et al. expound
+on these in their paper, and we expand on them here:
+
+4) **Consistency:** The policy change is the same across treated units. For 
+example, if states introduced a texting ban while driving and these bans were 
+associated with different penalties, then the policy change would not meet the
+consistency assumption because the different penalties may have varying effects 
+on the outcomes of interest.
+5) **No interference:** Outcomes of individuals in one state do not affect 
+outcomes of individuals in other states.
+6) **Exchangeability:** Had the treated states been untreated, they would have 
+experienced the trend in outcomes experienced by the untreated group. This 
+causal assumption is the same as the counterfactual parallel trends assumption
+[DANA DO YOU AGREE?]. 
+7) **Positivity:** Each state has a non-zero probability of being treated. [TO
+DISCUSS: See Ben-Micheal paper - they say that positivity is not a required
+assumption for standard DID]
+
+WHERE TO PUT THIS ONE IF WE TALK ABOUT IT?
+
+8) **Correct model form**: SOMETHING ABOUT LINEARITY? ALSO RELATED TO THE PARALLEL
+TRENDS ASSUMPTION 
+
 
 ### Two-way fixed effected (TWFE) regression model
 
@@ -140,27 +171,39 @@ s2a <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen2a",
 
 s2b <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen2b",
                   col_types = c("text", "text", "text", "numeric"))
+
+s2a %<>% mutate(ever_trt = case_when(state %in% c("2", "3") ~ "treated",
+                                     state == "1" ~ "never-treated"))
+
+s2b %<>% mutate(ever_trt = case_when(state %in% c("2", "3") ~ "treated",
+                                     state == "1" ~ "never-treated"))
 ```
 
 ### Visualization of Scenario 2
 
 ```{r, echo=F}
 s2a_plot <-ggplot(s2a, aes(x = time, y = outcome)) + 
-  geom_point(aes(fill = state), size = 4, pch = 21) +
+  geom_line(aes(group = state, col = state)) +
+  geom_point(aes(fill = state, pch = ever_trt), size = 4) +
   geom_text(aes(label = outcome), nudge_x = 0.1) +
-  scale_fill_manual(values = c("#a6cee3","#005a32", "#99000d")) +
+  scale_fill_manual(values = c("#a6cee3","#005a32", "#99000d"), guide = "none") +
+  scale_color_manual(values = c("#a6cee3","#005a32", "#99000d")) +
+  scale_shape_manual(values = c(21, 23)) + 
   theme_bw() + labs(title = "Scenario 2a")
 
 s2b_plot <-ggplot(s2b, aes(x = time, y = outcome)) + 
-  geom_point(aes(fill = state), size = 4, pch = 21) +
+  geom_line(aes(group = state, col = state)) +
+  geom_point(aes(fill = state, pch = ever_trt), size = 4) +
   geom_text(aes(label = outcome), nudge_x = 0.1) +
-  scale_fill_manual(values = c("#a6cee3","#005a32", "#99000d")) +
+  scale_fill_manual(values = c("#a6cee3","#005a32", "#99000d"), guide = "none") +
+  scale_color_manual(values = c("#a6cee3","#005a32", "#99000d")) +
+  scale_shape_manual(values = c(21, 23)) + 
   theme_bw() + labs(title = "Scenario 2b")
 
 s2a_plot + s2b_plot + plot_layout(guides = "collect")  & 
   scale_y_continuous(limits = range(c(s2a$outcome, s2b$outcome)))
 ```
-(AS ABOVE, POSSIBLE TO ADD LINES CONNECTING STATES IN PRE-POST TIMES, AND TO INDICATE WHICH IS TREATED?)
+
 The following can be read from the labelled plot for Scenario 2A:
 
 * Post-Pre Difference for never-treated state 1: 12-9=3
@@ -196,7 +239,6 @@ where >1 of the groups becomes treated, you can calculate the DID estimate by
 hand or using TWFE regression. If treatment effects are heterogeneous across 
 states, then the estimated effect is the average ATT across the 
 states
-
 
 **Things to discuss with Dana:**
 
@@ -262,7 +304,7 @@ s3b_mean_info <- s3b %>% group_by(state, post) %>%
 
 s3a_plot <- ggplot(s3a, aes(x = time, y = outcome)) + 
   geom_line(aes(col = state)) + 
-  geom_point(aes(fill = state), pch = 21) +
+  geom_point(aes(fill = state, pch = state)) +
   labs(title = "Scenario 3A (Constant change)") +
   geom_vline(aes(xintercept = 5.5), lty = 2) + 
   geom_label(data = s3a_mean_info, 
@@ -277,6 +319,7 @@ s3a_plot <- ggplot(s3a, aes(x = time, y = outcome)) +
             nudge_y = 0.1) +
   scale_fill_manual(values = c("#a6cee3","#005a32")) +
   scale_color_manual(values = c("#a6cee3","#005a32")) +
+  scale_shape_manual(values = c(21, 23)) + 
   theme_bw()
 
 s3b_plot <- ggplot(s3b, aes(x = time, y = outcome)) + 
@@ -296,6 +339,7 @@ s3b_plot <- ggplot(s3b, aes(x = time, y = outcome)) +
             nudge_y = 0.1) +
   scale_fill_manual(values = c("#a6cee3","#005a32")) +
   scale_color_manual(values = c("#a6cee3","#005a32")) +
+  scale_shape_manual(values = c(21, 23)) + 
   theme_bw()
 
 s3a_plot + s3b_plot + plot_layout(guides = "collect")  & 
@@ -316,14 +360,15 @@ The following can be read from the labelled plot for Scenario 3B:
 
 For Scenario 3B the effect is dynamic, and rather than 
 calculating an ATT that aggregates over post-time, it might be beneficial to calculate 
-the effect separately by time since treatment. To do that, we could label the 
-outcomes separately by time since treatment and calculate a separate DID for 
-every time point since treatment. The average of these DIDs will equal the 6
-that we calculated using the average outcome over post-treatment time.
+the effect separately by time since treatment. Here, the effect increases over 
+time, suggesting that the policy change takes time to "kick-in". In contrast, 
+some policies may be associated with large initial effects that attenuate over 
+time. Knowing if a policy introduction is associated with a changing effect over
+time is therefore important for understanding the real-world effects of the policy. 
 
-WHY WOULD WE WANT TO CALCULATE THE EFFECTS SEPARATELY BY TIME SINCE TREATMENT? I THINK 
-IT'S WORTH SPELLING OUT WHY THAT WOULD BE USEFUL, AND SHOWING AN EXAMPLE OF HOW TO DO IT
--- OR IS THIS WHAT YOU'RE DOING BELOW? I WOULD CLARIFY
+Thus, in this scenario we first estimate the average treatment effect using a 
+TWFE model, and then we estimate the dynamic effect by extending the TWFE model
+to include a categorical indicator for time since the policy's introduction. 
 
 ## TWFE Regression Model
 
@@ -1266,6 +1311,8 @@ corresponds to. Possibly in a setting where there are no ever-treated states?
 with SE at all. So may want to say something or modify the code.  
 * CONSIDER IMPLEMENTING THE STAGGERED REGRESSION APPRAOCH
 * DISCUSSION OF DIFFERENT TARGET PARAMETERS, AND WHY SOME MIGHT BE OF MORE INTEREST THAN OTHERS
+* https://causalinf.substack.com/p/illustrating-the-bias-of-twfe-in?utm_source=url
+maybe try implementing this example
 
 ```{r}
 # s8 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen8", 
