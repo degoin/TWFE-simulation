@@ -33,6 +33,12 @@ In the following examples, state policy changes are the effects of interest.
 First, load the packages for reading and plotting the data. The packages `bacondecomp` and 
 `did` are specific to DID analyses.
 
+```{r, echo = F}
+# set path
+riddellPath <- c( "/data/riddell//R/x86_64-pc-linux-gnu-library/4.1/" , .libPaths() )
+.libPaths(riddellPath)
+```
+
 ```{r load-libraries, warning=F, message=F}
 # you will need to install these packages if you don't have them already
 # install.packages(c("here", "readxl", "tidyverse", "patchwork", "magrittr", 
@@ -49,7 +55,7 @@ library(bacondecomp)
 library(did)
 ```
 
-## Scenario 1
+## Scenario 1 (2 states by 2 time points)
 
 We first consider the simplest case in which there is one state that never adopts 
 the policy (the never-treated group), and one state that does implement the policy 
@@ -158,11 +164,11 @@ by hand or using TWFE regression. Note that there are only 4 rows of data
 and no sampling variability so no measures of variation can be estimated in this
 setting.
 
-## Scenario 2A and 2B
+## Scenario 2A and 2B (3 states, homogeneous and heterogeneous treatment effects)
 
 This scenario is similar to Scenario 1, except now there are two states that
 undergo treatment. In Scenario 2A, the magnitude of the treatment effect is the 
-same in both states. In Scenrio 2B, the magnitude of the treatment effect 
+same in both states. In Scenario 2B, the magnitude of the treatment effect 
 varies by state.
 
 ```{r import-scen2}
@@ -218,7 +224,7 @@ The following can be read from the labelled plot for Scenario 2B:
 * Post-Pre Difference for treated state 3: 17-11=6
 * Causal effect of policy = 2 for state 2 vs 1 and 3 for state 3 vs 1 for an ATT of 2.5
 
-## TWFE Regression model
+### TWFE Regression model
 
 ```{r}
 s2a_mod <- lm(outcome ~ policy + state + time, data = s2a)
@@ -245,7 +251,7 @@ states
 - The state FEs are a bit off (FE for state 3 should be 2, for state 2 should be 1)
 - Interesting to think about differences in the p-value for scen 2a (very small) vs 2b (big)
 
-## Scenario 3A and 3B
+## Scenario 3A and 3B (Two states, dynamic treatment effect)
 
 In scenario 3, the number of time periods is increased to incorporate 5 time 
 points before and after a policy change. One never-treated and one treated
@@ -298,46 +304,55 @@ s3b_mean_info <- s3b %>% group_by(state, post) %>%
               values_from = mean_y) %>%
   mutate(diff = post_TRUE - post_FALSE)
 ```
-## Visualization of Scenario 3
+### Visualization of Scenario 3
 
 ```{r, echo=F}
+s3a %<>% mutate(ever_trt = case_when(state == "2" ~ "treated",
+                                     state == "1" ~ "never-treated"))
+
+s3b %<>% mutate(ever_trt = case_when(state == "2" ~ "treated",
+                                     state == "1" ~ "never-treated"))
 
 s3a_plot <- ggplot(s3a, aes(x = time, y = outcome)) + 
   geom_line(aes(col = state)) + 
-  geom_point(aes(fill = state, pch = state)) +
+  geom_point(aes(fill = state, pch = ever_trt)) +
   labs(title = "Scenario 3A (Constant change)") +
   geom_vline(aes(xintercept = 5.5), lty = 2) + 
   geom_label(data = s3a_mean_info, 
             aes(y = post_FALSE, x = 4, 
                 col = state, 
                 label = paste("y_mean= ", post_FALSE)),
-            nudge_y = 0.1) +
+            nudge_y = 0.1,
+            show.legend = FALSE) +
     geom_label(data = s3a_mean_info, 
             aes(y = post_TRUE, x = 8, 
                 col = state, 
                 label = paste("y_mean= ", post_TRUE)),
-            nudge_y = 0.1) +
-  scale_fill_manual(values = c("#a6cee3","#005a32")) +
+            nudge_y = 0.1,
+            show.legend = FALSE) +
+  scale_fill_manual(values = c("#a6cee3","#005a32"), guide = "none") +
   scale_color_manual(values = c("#a6cee3","#005a32")) +
   scale_shape_manual(values = c(21, 23)) + 
   theme_bw()
 
 s3b_plot <- ggplot(s3b, aes(x = time, y = outcome)) + 
   geom_line(aes(col = state)) + 
-  geom_point(aes(fill = state), pch = 21) + 
+  geom_point(aes(fill = state, pch = ever_trt)) + 
   labs(title = "Scenario 3B (Dynamic change)") +
   geom_vline(aes(xintercept = 5.5), lty = 2) + 
   geom_label(data = s3b_mean_info, 
             aes(y = post_FALSE, x = 4, 
                 col = state, 
                 label = paste("y_mean= ", post_FALSE)),
-            nudge_y = 0.1) +
+            nudge_y = 0.1,
+            show.legend = FALSE) +
     geom_label(data = s3b_mean_info, 
             aes(y = post_TRUE, x = 8, 
                 col = state, 
                 label = paste("y_mean= ", post_TRUE)),
-            nudge_y = 0.1) +
-  scale_fill_manual(values = c("#a6cee3","#005a32")) +
+            nudge_y = 0.1,
+            show.legend = FALSE) +
+  scale_fill_manual(values = c("#a6cee3","#005a32"), guide = "none") +
   scale_color_manual(values = c("#a6cee3","#005a32")) +
   scale_shape_manual(values = c(21, 23)) + 
   theme_bw()
@@ -370,7 +385,7 @@ Thus, in this scenario we first estimate the average treatment effect using a
 TWFE model, and then we estimate the dynamic effect by extending the TWFE model
 to include a categorical indicator for time since the policy's introduction. 
 
-## TWFE Regression Model
+### TWFE Regression Model
 
 Estimation of the dynamic effect in Scenario 3A:
 ```{r}
@@ -392,7 +407,7 @@ tidy(s3b_mod)
 The coefficient of the policy term is `r s3b_mod$coefficients["policy1"]`
 showing that the regression model estimate equaled the causal effect.
 
-## TWFE Regression Model with `time_since_policy` specification
+### TWFE Regression Model with `time_since_policy` specification
 
 Rather than using a binary indicator for the policy change, it can be coded
 using the `time_since_policy` variable. If we include this as a factor variable
@@ -426,7 +441,7 @@ Note that we could have modeled `time_since_policy` linearly, however including
 `time_since_policy` as a factor variable allows the estimation of effects to be
 non-linear over time.
 
-## Scenario 4
+## Scenario 4 (4 states, hetergenous treatment effects)
 
 Scenario 4 extends Scenario 3 to the multiple group setting. State 1 is 
 never-treated, while states 2-4 undergo treatment at time=6. The effects are 
@@ -437,34 +452,39 @@ treatment effect
 s4 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen4",
                 col_types = c("text", "numeric", "text", "numeric", "text", "numeric"))
 ```
-(I WOULD CHANGE THE A MARKERS TO CIRCLES)
 
 ```{r, echo=F}
 s4 %<>% mutate(post = time >= 6)
+
+s4 %<>% mutate(ever_trt = case_when(state %in% c("2", "3", "4") ~ "treated",
+                                     state == "1" ~ "never-treated"))
 
 s4_mean_info <- s4 %>% group_by(state, post) %>%
   summarise(mean_y = mean(outcome)) %>% 
   pivot_wider(id_cols = state, names_from = post, names_pre = "post_", values_from = mean_y) %>%
   mutate(diff = post_TRUE - post_FALSE)
 ```
-## Visualization of Scenario 4
+### Visualization of Scenario 4
 
 ```{r, echo=F}
 ggplot(s4, aes(x = time, y = outcome)) + 
   geom_line(aes(col = state)) + 
-  geom_point(aes(fill = state), pch = 21) + labs(title = "Scenario 4") +
+  geom_point(aes(fill = state, pch = ever_trt)) + labs(title = "Scenario 4") +
   geom_vline(aes(xintercept = 5.5), lty = 2) + 
   geom_label(data = s4_mean_info, 
             aes(y = post_FALSE, x = 4, 
                 col = state, 
-                label = paste("y_mean= ", post_FALSE))) +
+                label = paste("y_mean= ", post_FALSE)),
+            show.legend = FALSE) +
     geom_label(data = s4_mean_info, 
             aes(y = post_TRUE, x = 8, 
                 col = state, 
-                label = paste("y_mean= ", post_TRUE))) + 
+                label = paste("y_mean= ", post_TRUE)),
+            show.legend = FALSE) + 
   theme_bw() +
   scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) + 
-  scale_fill_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d"))
+  scale_fill_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) + 
+  scale_shape_manual(values = c(21, 23, 23, 23))
 ```
 
 The following can be read from the labelled plot:
@@ -479,7 +499,7 @@ The following can be read from the labelled plot:
 * $DID_{4 vs. 1} = 18-15 = 3$
 * $ATT = 2$
 
-## TWFE Regression Model 
+### TWFE Regression Model 
 
 ```{r}
 s4_mod <- lm(outcome ~ policy + state + factor(time), 
@@ -553,15 +573,12 @@ summary(m2_ag)
 Here, we see the ATT is equal to `r # m2_ag$overall.att` as estimated by the TWFE 
 model.
 
-### Scenario 5
+## Scenario 5 (4 states, staggered treatment timing)
 
-Scenario 5 expands upon Scenario 4 by introducing staggered timing. In this 
-example, the treated states introduce the policy at two different time points.
+Scenario 5 introduces staggered timing. In this example, the treated states introduce the policy at two different time points.
 The treatment effects are non-dynamic and there are two never-treated states and
 two ever-treated states.
 
-(SINCE THIS IS AN EXTENSION OF SCENARIO 5, I WOULD KEEP THE HETEROGENEOUS TX EFFECTS PART
-AND JUST INRODUCE STAGGERED TIMING)
 ```{r}
 s5 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen5",
                 col_types = c("text", "numeric", "text", "numeric", "text", "numeric"))
@@ -570,13 +587,18 @@ s5 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen5",
 ### Visualization of Scenario 5
 
 ```{r, echo = F}
+
+s5 %<>% mutate(ever_trt = case_when(state %in% c("3", "4") ~ "treated",
+                                     state %in% c("1", "2") ~ "never-treated"))
+
 ggplot(s5, aes(x = time, y = outcome)) + 
   geom_line(aes(col = state)) + 
-  geom_point(aes(fill = state), pch = 21) + labs(title = "Scenario 5 (Staggered timing)") +
+  geom_point(aes(fill = state, pch = ever_trt)) + labs(title = "Scenario 5 (Staggered timing)") +
   geom_vline(aes(xintercept = 4.5), lty = 2, col = "#005a32") + 
   geom_vline(aes(xintercept = 11.5), lty = 2, col = "#99000d") +
   scale_fill_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) +
   scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) +
+  scale_shape_manual(values = c(21, 23)) + 
   theme_bw()
 ```
 
@@ -622,52 +644,60 @@ DID4 <- bind_cols(mean_5_11,
 
 ```{r, echo = F, fig.height = 8, fig.width = 10}
 s5_comp1 <- ggplot(s5 %>% filter(state %in% c(1, 2, 3)), aes(x = time, y = outcome)) +   
-  geom_point(aes(col = factor(state))) + labs(title = "A) Contrast 1 (Earlier treated vs. untreated)") +
   geom_line(aes(col = factor(state))) + 
-  geom_vline(aes(xintercept = 4.5), lty = 2) +
-  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32")) +
+  geom_point(aes(fill = factor(state), pch = ever_trt), show.legend = F) + labs(title = "A) Contrast 1 (Earlier treated vs. untreated)") +
+  geom_vline(aes(xintercept = 4.5), lty = 2)  +
+  geom_label_repel(data = DID1 %>% filter(state %in% c(1,2,3)), 
+                  aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state), show.legend = F) +
+  geom_label_repel(data = DID1 %>% filter(state %in% c(1,2,3)), 
+                  aes(y = mean_5_20, x = 12.5, label = paste("mean_y:", mean_5_20), col = state), show.legend = F) +
   theme_bw() + 
   scale_x_continuous(limits = c(1, 20)) + 
-  geom_label_repel(data = DID1 %>% filter(state %in% c(1,2,3)), 
-                  aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state)) +
-  geom_label_repel(data = DID1 %>% filter(state %in% c(1,2,3)), 
-                  aes(y = mean_5_20, x = 12.5, label = paste("mean_y:", mean_5_20), col = state))
+  scale_shape_manual(values = c(21, 23)) + 
+  scale_fill_manual(values = c("#a6cee3","#1f78b4","#005a32")) +
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32"))
 
 s5_comp2 <- ggplot(s5 %>% filter(state %in% c(1, 2, 4)), aes(x = time, y = outcome)) +   
-  geom_point(aes(col = factor(state))) + labs(title = "B) Contrast 2 (Later treated vs. untreated)") +
   geom_line(aes(col = factor(state))) + 
+  geom_point(aes(fill = factor(state), pch = ever_trt), show.legend = F) + labs(title = "B) Contrast 2 (Later treated vs. untreated)") +
   geom_vline(aes(xintercept = 11.5), lty = 2) +
-  scale_color_manual(values = c("#a6cee3","#1f78b4","#99000d")) +
-  theme_bw()+ 
-  scale_x_continuous(limits = c(1, 20)) +
   geom_label_repel(data = DID2 %>% filter(state %in% c(1,2,4)), 
-                   aes(y = mean_1_11, x = 6, label = paste("mean_y:", mean_1_11), col = state)) +
+                   aes(y = mean_1_11, x = 6, label = paste("mean_y:", mean_1_11), col = state), show.legend = F) +
   geom_label_repel(data = DID2 %>% filter(state %in% c(1,2,4)), 
-                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state))
+                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state), show.legend = F) +
+  theme_bw() + 
+  scale_x_continuous(limits = c(1, 20)) + 
+  scale_shape_manual(values = c(21, 23)) + 
+  scale_fill_manual(values = c("#a6cee3","#1f78b4","#005a32")) +
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32"))
 
 s5_comp4 <- ggplot(s5 %>% filter(state %in% c(3, 4), time >= 5), aes(x = time, y = outcome)) +   
-  geom_point(aes(col = factor(state))) + labs(title = "C) Contrast 4 (Earlier vs. later treated)") +
-  geom_line(aes(col = factor(state))) + 
+  geom_line(aes(col = factor(state))) +
+  geom_point(aes(fill = factor(state), pch = ever_trt), show.legend = F) + labs(title = "C) Contrast 4 (Earlier vs. later treated)") +
   geom_vline(aes(xintercept = 11.5), lty = 2) +
-  scale_color_manual(values = c("#005a32", "#99000d")) +
-  theme_bw()+ 
-  scale_x_continuous(limits = c(1, 20)) +
   geom_label_repel(data = DID4 %>% filter(state %in% c(3,4)), 
-                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state)) +
+                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state), show.legend = F) +
   geom_label_repel(data = DID4 %>% filter(state %in% c(3,4)), 
-                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state))
+                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state), show.legend = F) +
+  theme_bw() + 
+  scale_x_continuous(limits = c(1, 20)) + 
+  scale_shape_manual(values = 23) + 
+  scale_fill_manual(values = c("#a6cee3","#1f78b4","#005a32")) +
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32"))
 
 s5_comp3 <- ggplot(s5 %>% filter(state %in% c(3, 4), time < 12), aes(x = time, y = outcome)) +   
-  geom_point(aes(col = factor(state))) + labs(title = "D) Contrast 3 (Later vs. earlier treated)") +
   geom_line(aes(col = factor(state))) + 
+  geom_point(aes(fill = factor(state), pch = ever_trt), show.legend = F) + labs(title = "D) Contrast 3 (Later vs. earlier treated)") +
   geom_vline(aes(xintercept = 4.5), lty = 2) +
-  scale_color_manual(values = c("#005a32", "#99000d")) +
-  theme_bw()+ 
-  scale_x_continuous(limits = c(1, 20)) +
   geom_label_repel(data = DID3 %>% filter(state %in% c(3,4)), 
-                   aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state)) +
+                   aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state), show.legend = F) +
   geom_label_repel(data = DID3 %>% filter(state %in% c(3,4)), 
-                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state))
+                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state), show.legend = F) +
+  theme_bw() + 
+  scale_x_continuous(limits = c(1, 20)) + 
+  scale_shape_manual(values = 23) + 
+  scale_fill_manual(values = c("#a6cee3","#1f78b4","#005a32")) +
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32"))
 
 s5_comp1 + s5_comp2 + s5_comp3 + s5_comp4 + plot_layout(guides = "collect")
 ```
@@ -747,7 +777,7 @@ summary(s5_cs_ag)
 Here, we see the ATT is equal to `r s5_cs_ag$overall.att` as estimated by the 
 TWFE model.
 
-### Scenario 6
+## Scenario 6 (4 states, staggered timing, dynamic effects)
 
 Scenario 6 is similar to Scenario 5 except now the treatment effect increases
 as time goes on, i.e., it is dynamic. The magnitude of the treatment effect is
@@ -759,12 +789,17 @@ s6 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen6",
 ```
 
 ```{r, echo=F}
+s6 %<>% mutate(ever_trt = case_when(state %in% c(3, 4) ~ "treated", 
+                                    state %in% c(1, 2) ~ "untreated"))
 ggplot(s6, aes(x = time, y = outcome)) + 
-  geom_point(aes(col = factor(state))) + labs(title = "Scenario 6 (Dynamic)") +
   geom_line(aes(col = factor(state))) + 
+  geom_point(aes(fill = factor(state), pch = ever_trt)) + 
+  labs(title = "Scenario 6 (Dynamic)") +
   geom_vline(aes(xintercept = 4.5), lty = 2, col = "#005a32") + 
   geom_vline(aes(xintercept = 11.5), lty = 2, col = "#99000d") +
+  scale_fill_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) +
   scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) +
+  scale_shape_manual(values = c(23, 21)) + 
   theme_bw()
 
 ```
@@ -808,53 +843,61 @@ s6_DID4 <- bind_cols(s6_mean_5_11,
 ```
 
 ```{r, echo = F, fig.height = 8, fig.width = 10}
-s6_comp1 <- ggplot(s6 %>% filter(state %in% c(1, 2, 3)), aes(x = time, y = outcome)) +   
-  geom_point(aes(col = factor(state))) + labs(title = "A) Comparison 1 (Treated vs. never-treated)") +
+s6_comp1 <- ggplot(s6 %>% filter(state %in% c(1, 2, 3)), aes(x = time, y = outcome)) + 
   geom_line(aes(col = factor(state))) + 
+  geom_point(aes(fill = factor(state), pch = ever_trt)) + labs(title = "A) Comparison 1 (Treated vs. never-treated)") +
   geom_vline(aes(xintercept = 4.5), lty = 2) +
   scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32")) +
+  scale_fill_manual(values = c("#a6cee3","#1f78b4","#005a32")) +
   theme_bw() + 
-  scale_x_continuous(limits = c(1, 20))  + 
+  scale_x_continuous(limits = c(1, 20)) +
+  scale_shape_manual(values = c(23, 21)) + 
   geom_label_repel(data = s6_DID1 %>% filter(state %in% c(1,2,3)), 
-                  aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state)) +
+                  aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state), show.legend = F) +
   geom_label_repel(data = s6_DID1 %>% filter(state %in% c(1,2,3)), 
-                  aes(y = mean_5_20, x = 12.5, label = paste("mean_y:", mean_5_20), col = state))
-
-s6_comp2 <- ggplot(s6 %>% filter(state %in% c(1, 2, 4)), aes(x = time, y = outcome)) +   
-  geom_point(aes(col = factor(state))) + labs(title = "B) Comparison 2 (Treated vs. never-treated)") +
-  geom_line(aes(col = factor(state))) + 
+                  aes(y = mean_5_20, x = 12.5, label = paste("mean_y:", mean_5_20), col = state), show.legend = F)
+ 
+s6_comp2 <- ggplot(s6 %>% filter(state %in% c(1, 2, 4)), aes(x = time, y = outcome)) + 
+  geom_line(aes(col = factor(state))) +
+  geom_point(aes(fill = factor(state),  pch = ever_trt)) + labs(title = "B) Comparison 2 (Treated vs. never-treated)") +
   geom_vline(aes(xintercept = 11.5), lty = 2) +
   scale_color_manual(values = c("#a6cee3","#1f78b4","#99000d")) +
+  scale_fill_manual(values = c("#a6cee3","#1f78b4","#99000d")) +
   theme_bw()+ 
   scale_x_continuous(limits = c(1, 20)) +
+  scale_shape_manual(values = c(23, 21)) + 
   geom_label_repel(data = s6_DID2 %>% filter(state %in% c(1,2,4)), 
-                   aes(y = mean_1_11, x = 6, label = paste("mean_y:", mean_1_11), col = state)) +
+                   aes(y = mean_1_11, x = 6, label = paste("mean_y:", mean_1_11), col = state), show.legend = F) +
   geom_label_repel(data = s6_DID2 %>% filter(state %in% c(1,2,4)), 
-                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state))
+                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state), show.legend = F)
 
-s6_comp4 <- ggplot(s6 %>% filter(state %in% c(3, 4), time >= 5), aes(x = time, y = outcome)) +   
-  geom_point(aes(col = factor(state))) + labs(title = "C) Comparison 4 (Later vs. earlier-treated)") +
+s6_comp4 <- ggplot(s6 %>% filter(state %in% c(3, 4), time >= 5), aes(x = time, y = outcome)) +  
   geom_line(aes(col = factor(state))) + 
+  geom_point(aes(fill = factor(state), pch = ever_trt)) + labs(title = "C) Comparison 4 (Later vs. earlier-treated)") +
   geom_vline(aes(xintercept = 11.5), lty = 2) +
   scale_color_manual(values = c("#005a32", "#99000d")) +
+  scale_fill_manual(values = c("#005a32", "#99000d")) +
+  scale_shape_manual(values = c(23)) + 
   theme_bw()+ 
   scale_x_continuous(limits = c(1, 20)) +
   geom_label_repel(data = s6_DID4 %>% filter(state %in% c(3,4)), 
-                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state)) +
+                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state), show.legend = F) +
   geom_label_repel(data = s6_DID4 %>% filter(state %in% c(3,4)), 
-                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state))
+                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state), show.legend = F)
 
 s6_comp3 <- ggplot(s6 %>% filter(state %in% c(3, 4), time < 12), aes(x = time, y = outcome)) +   
-  geom_point(aes(col = factor(state))) + labs(title = "D) Comparison 3 (Earlier vs. later-treated)") +
   geom_line(aes(col = factor(state))) + 
+  geom_point(aes(fill = factor(state), pch = ever_trt)) + labs(title = "D) Comparison 3 (Earlier vs. later-treated)") +
   geom_vline(aes(xintercept = 4.5), lty = 2) +
   scale_color_manual(values = c("#005a32", "#99000d")) +
+  scale_fill_manual(values = c("#005a32", "#99000d")) +
+  scale_shape_manual(values = c(23)) + 
   theme_bw()+ 
   scale_x_continuous(limits = c(1, 20)) +
   geom_label_repel(data = s6_DID3 %>% filter(state %in% c(3,4)), 
-                   aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state)) +
+                   aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state), show.legend = F) +
   geom_label_repel(data = s6_DID3 %>% filter(state %in% c(3,4)), 
-                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state))
+                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state), show.legend = F)
 
 s6_comp1 + s6_comp2 + s6_comp3 + s6_comp4 + plot_layout(guides = "collect")
 ```
@@ -1032,7 +1075,7 @@ modeled using the `time since treatment` variable.
 (KEY QUESTION IS WHAT PARAMETER ARE YOU INTERESTED IN? DO YOU WANT A DYNAMIC ESTIMATE, 
 OR ARE YOU MORE INTERESTED IN A SUMMARY PARAMETER? )
 
-## Scenario 7
+## Scenario 7 (4 states, staggered timing , dynamic and hetergenous treatment effects)
 
 Scenario 7 is like Scenario 6 except now the treatment effect is dynamic AND
 heterogeneous. In this scenario, the state that implements the policy change 
@@ -1044,14 +1087,22 @@ s7 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen7",
 ```
 
 ```{r, echo=F}
+s7 %<>% mutate(ever_trt = case_when(state %in% c(3, 4) ~ "treated", 
+                                    state %in% c(1, 2) ~ "untreated")
+               )
+
 ggplot(s7, aes(x = time, y = outcome)) + 
-  geom_point(aes(col = factor(state))) + labs(title = "Scenario 7 (Staggered, dynamic, and heterogeneous)") +
+  geom_point(aes(fill = factor(state), pch = ever_trt)) +
+  labs(title = "Scenario 7 (Staggered, dynamic, and heterogeneous)") +
   geom_line(aes(col = factor(state))) + 
   geom_vline(aes(xintercept = 4.5), lty = 2, col = "#005a32") + 
   geom_vline(aes(xintercept = 11.5), lty = 2, col = "#99000d") +
   scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) +
+  scale_fill_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) +
+  scale_shape_manual(values = c(23, 21)) + 
   theme_bw()
 ```
+
 ```{r, echo=F}
 s7_mean_1_4 <- s7 %>% filter(time < 5) %>%
   group_by(state) %>%
@@ -1092,52 +1143,60 @@ s7_DID4 <- bind_cols(s7_mean_5_11,
 
 ```{r, echo = F, fig.height = 8, fig.width = 10}
 s7_comp1 <- ggplot(s7 %>% filter(state %in% c(1, 2, 3)), aes(x = time, y = outcome)) +   
-  geom_point(aes(col = factor(state))) + labs(title = "A) Contrast 1 (Treated vs. never-treated)") +
   geom_line(aes(col = factor(state))) + 
+  geom_point(aes(fill = factor(state), pch = ever_trt)) + labs(title = "A) Contrast 1 (Treated vs. never-treated)") +
   geom_vline(aes(xintercept = 4.5), lty = 2) +
-  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32")) +
-  theme_bw() + 
+  geom_label_repel(data = s7_DID1 %>% filter(state %in% c(1,2,3)),
+                  aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state), show.legend = F) +
+  geom_label_repel(data = s7_DID1 %>% filter(state %in% c(1,2,3)),
+                  aes(y = mean_5_20, x = 12.5, label = paste("mean_y:", mean_5_20), col = state), show.legend = F) +
   scale_x_continuous(limits = c(1, 20))  + 
-  geom_label_repel(data = s7_DID1 %>% filter(state %in% c(1,2,3)),
-                  aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state)) +
-  geom_label_repel(data = s7_DID1 %>% filter(state %in% c(1,2,3)),
-                  aes(y = mean_5_20, x = 12.5, label = paste("mean_y:", mean_5_20), col = state))
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32")) +
+  scale_fill_manual(values = c("#a6cee3","#1f78b4","#005a32")) +
+  scale_shape_manual(values = c(21, 23)) + 
+  theme_bw() 
 
 s7_comp2 <- ggplot(s7 %>% filter(state %in% c(1, 2, 4)), aes(x = time, y = outcome)) +   
-  geom_point(aes(col = factor(state))) + labs(title = "B) Contrast 2 (Treated vs. never-treated)") +
   geom_line(aes(col = factor(state))) + 
+  geom_point(aes(fill = factor(state), pch = ever_trt)) + labs(title = "B) Contrast 2 (Treated vs. never-treated)") +
   geom_vline(aes(xintercept = 11.5), lty = 2) +
+  geom_label_repel(data = s7_DID2 %>% filter(state %in% c(1,2,4)),
+                   aes(y = mean_1_11, x = 6, label = paste("mean_y:", mean_1_11), col = state), show.legend = F) +
+  geom_label_repel(data = s7_DID2 %>% filter(state %in% c(1,2,4)),
+                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state), show.legend = F) +
+  scale_x_continuous(limits = c(1, 20))  + 
   scale_color_manual(values = c("#a6cee3","#1f78b4","#99000d")) +
-  theme_bw()+ 
-  scale_x_continuous(limits = c(1, 20)) +
-  geom_label_repel(data = s7_DID2 %>% filter(state %in% c(1,2,4)),
-                   aes(y = mean_1_11, x = 6, label = paste("mean_y:", mean_1_11), col = state)) +
-  geom_label_repel(data = s7_DID2 %>% filter(state %in% c(1,2,4)),
-                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state))
+  scale_fill_manual(values = c("#a6cee3","#1f78b4","#99000d")) +
+  scale_shape_manual(values = c(21, 23)) + 
+  theme_bw() 
 
-s7_comp4 <- ggplot(s7 %>% filter(state %in% c(3, 4), time >= 5), aes(x = time, y = outcome)) +   
-  geom_point(aes(col = factor(state))) + labs(title = "C) Contrast 4 (Later vs. earlier-treated)") +
+s7_comp4 <- ggplot(s7 %>% filter(state %in% c(3, 4), time >= 5), aes(x = time, y = outcome)) +
   geom_line(aes(col = factor(state))) + 
+  geom_point(aes(fill = factor(state), pch = ever_trt), show.legend = F) + labs(title = "C) Contrast 4 (Later vs. earlier-treated)") +
   geom_vline(aes(xintercept = 11.5), lty = 2) +
-  scale_color_manual(values = c("#005a32", "#99000d")) +
-  theme_bw()+ 
-  scale_x_continuous(limits = c(1, 20)) +
   geom_label_repel(data = s7_DID4 %>% filter(state %in% c(3,4)),
-                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state)) +
+                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state), show.legend = F) +
   geom_label_repel(data = s7_DID4 %>% filter(state %in% c(3,4)),
-                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state))
+                   aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state), show.legend = F) + 
+  scale_x_continuous(limits = c(1, 20))  + 
+  scale_color_manual(values = c("#1f78b4","#99000d")) +
+  scale_fill_manual(values = c("#1f78b4","#99000d")) +
+  scale_shape_manual(values = c(23)) + 
+  theme_bw() 
 
 s7_comp3 <- ggplot(s7 %>% filter(state %in% c(3, 4), time < 12), aes(x = time, y = outcome)) +   
-  geom_point(aes(col = factor(state))) + labs(title = "D) Contrast 3 (Earlier vs. later-treated)") +
   geom_line(aes(col = factor(state))) + 
+  geom_point(aes(fill = factor(state), pch = ever_trt), show.legend = F) + labs(title = "D) Contrast 3 (Earlier vs. later-treated)") +
   geom_vline(aes(xintercept = 4.5), lty = 2) +
-  scale_color_manual(values = c("#005a32", "#99000d")) +
-  theme_bw() + 
-  scale_x_continuous(limits = c(1, 20)) +
   geom_label_repel(data = s7_DID3 %>% filter(state %in% c(3,4)),
-                   aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state)) +
+                   aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state), show.legend = F) +
   geom_label_repel(data = s7_DID3 %>% filter(state %in% c(3,4)),
-                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state))
+                   aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state), show.legend = F) + 
+  scale_x_continuous(limits = c(1, 20))  + 
+  scale_color_manual(values = c("#1f78b4","#99000d")) +
+  scale_fill_manual(values = c("#1f78b4","#99000d")) +
+  scale_shape_manual(values = c(23)) + 
+  theme_bw() 
 
 s7_comp1 + s7_comp2 + s7_comp3 + s7_comp4 + plot_layout(guides = "collect")
 ```
@@ -1276,7 +1335,6 @@ s7_cs_ag4 <- aggte(s7_cs, type = "calendar")
 summary(s7_cs_ag4)
 ggdid(s7_cs_ag4)
 ```
-
 
 ### TWFE with `time_since_policy` specification
 
