@@ -140,8 +140,7 @@ assumption for standard DID]
 
 WHERE TO PUT THIS ONE IF WE TALK ABOUT IT?
 
-8) **Correct model form**: SOMETHING ABOUT LINEARITY? ALSO RELATED TO THE PARALLEL
-TRENDS ASSUMPTION 
+8) **Correct model specification**: SOMETHING ABOUT LINEARITY? ALSO RELATED TO THE PARALLEL TRENDS ASSUMPTION 
 
 
 ### Two-way fixed effected (TWFE) regression model
@@ -769,7 +768,9 @@ s5_cs <- att_gt(yname = "outcome",
              gname = "time_first_treat", 
              data = s5, 
              anticipation = 0)
+```
 
+```{r}
 s5_cs_ag <- aggte(s5_cs, type="simple")
 summary(s5_cs_ag)
 ```
@@ -803,6 +804,8 @@ ggplot(s6, aes(x = time, y = outcome)) +
   theme_bw()
 
 ```
+
+**Visualization of all comparisons made by TWFE regression**
 
 ```{r, echo=F}
 s6_mean_1_4 <- s6 %>% filter(time < 5) %>%
@@ -965,10 +968,8 @@ It's more helpful to view the four contrasts separately:
 ```{r}
 s6_bacon
 ```
-So we can see the estimates of the TE for each contrast are as we calculated 
-them earlier. 
-
-(WHAT DOES TE MEAN HERE?)
+So we can see the estimates of the treatment effect for each contrast are as we
+calculated them earlier. 
 
 We can also confirm that you get the TWFE estimate by taking the weighted 
 average of the Goodman-Bacon decomposition components:
@@ -980,11 +981,14 @@ sum(s6_bacon$estimate*s6_bacon$weight)
 Okay, so we know the TWFE regression estimate is wrong, in particular because it is incorporating a 
 contrast that we wouldn't want to make in practice between an earlier treated and a later treated group. To overcome this we can use the Callaway and Sant'Anna estimator. 
 
-First, we running the `att_gt()` function and display its output using 
-`summary()`. The ATT is estimated for each combination of treated state 
-and time. It also includes estimates for pre-policy time, which helps with the 
-evaluation of the parallel trends assumption or to see if there are any lead
-effects ("anticipation") of the treatment on the outcome. 
+Like in the earlier examples we start by running the `att_gt()` function. Unlike
+before, we display the output from this step using `summary()`. This output shows the estimated ATT for each combination of treated state and time. The time is long
+becuase it includes estimates for pre-policy time, which helps with the 
+evaluation of the parallel trends assumption or to see if there are any lead 
+effects ("anticipation") of the treatment on the outcome. You wouldn't usually 
+report this entire table, but it worth showing here to see how the estimated 
+effect is dynamic and that decisions need to be make about how to report dynamics
+effects including whether or not to aggregate the effect, and if so, at what level.
 
 ```{r}
 s6_cs <- att_gt(yname = "outcome", 
@@ -997,11 +1001,10 @@ s6_cs <- att_gt(yname = "outcome",
 summary(s6_cs)
 ```
 
-(I'M NOT SURE WHY THIS IS USEFUL TO SHOW)
-
 Callaway and Sant'Anna provide many options for aggregating the group-time 
-effects. The simplest option is specify `type = simple`. This estimate considered
-only the clean contrasts of 1 and 2 and combines them by weighting by the total
+effects. The simplest option is specify `type = simple` in the `attge()` function.
+This estimate considered only the clean contrasts (Comparisons 1 and 2 in the figure
+above) and combines them by weighting by the total
 time in the post-treatment period. For contrast 1, there are 16 
 time periods post treatment and for contrast 2, there are 9 periods 
 post-treatment. Thus this estimate is the weighted average: $10.5\times(16/25) + 7\times(9/25)=9.24$
@@ -1037,21 +1040,22 @@ In this case, it is very helpful to plot the effect estimates over time:
 ggdid(s6_cs_ag3)
 ```
 
-For exposition's sake, we also show the estimate using `type = "calendar"`.
-For this specific example, I don't love this aggregation -- I think for dynamic
-effects it makes things a little wonky and doesn't reveal anything super helpful:
+Lastly, you can use `type = "calendar"` to aggregate the effects over calendar
+time. Epidemiologically, this doesn't make a lot of sense with dynamic effects
+because it is mixing effect estimates across difference times since treatment
+was introduced. In some cases, only one comparison is contributing to the estimation
+(e.g., in calendar time periods where only one group has introduced the treatment), while at other points, two comparisons contribute. But this "knowledge" is lot
+in the presentation. We don't show the output from using `type = "calendar"` but
+include the code below in case it makes sense for your setting.
 
-```{r}
+```{r, eval=F}
 #calendar time specific
-#i don't love this one...but CS say they prefer it here
+#not recommended for this setting...but CS say they prefer it here
 #https://bcallaway11.github.io/did/articles/did-basics.html
 s6_cs_ag4 <- aggte(s6_cs, type = "calendar")
 summary(s6_cs_ag4)
 ggdid(s6_cs_ag4)
 ```
-
-(I AGREE, NOT SURE WHAT IT ADDS AND IS CONFUSING. I'M GUESSING IT LOOKS THIS WAY BECAUSE OF THE TWO 
-TREATED GROUPS HAVING DIFFERENT NUMBERS OF POST-TREATMENT OUTCOMES?)
 
 ### TWFE with `time_since_policy` specification
 
@@ -1070,10 +1074,15 @@ using `type = "dynamic"`
 
 **Takeway:** When the treatment effect is staggered and dynamic, you can still 
 capture the effect estimate using a TWFE model so long as the policy effect is 
-modeled using the `time since treatment` variable. 
-
-(KEY QUESTION IS WHAT PARAMETER ARE YOU INTERESTED IN? DO YOU WANT A DYNAMIC ESTIMATE, 
-OR ARE YOU MORE INTERESTED IN A SUMMARY PARAMETER? )
+modeled using the `time since treatment` variable. The key question for the 
+researcher is identifying their parameter of interest -- are you interested in 
+estimating a dynamic effect, or does a parameter that summarizes over treatment
+time make sense? I am inclined to start by estimating a dynamic effect to see
+if the model supports the presence of a dynamic effect. If so, it is important 
+of how the policy operates after being rolled out. If there is no strong support
+for a dynamic effect, then I would consider estimating the effects separately by
+timing of introduction if that is sensible for the policy change under study (i.e., if there are only a few separate time points), or estimating an overall summary
+parameter.
 
 ## Scenario 7 (4 states, staggered timing , dynamic and hetergenous treatment effects)
 
@@ -1102,6 +1111,8 @@ ggplot(s7, aes(x = time, y = outcome)) +
   scale_shape_manual(values = c(23, 21)) + 
   theme_bw()
 ```
+
+**Visualization of all comparisons made by TWFE regression**
 
 ```{r, echo=F}
 s7_mean_1_4 <- s7 %>% filter(time < 5) %>%
@@ -1249,7 +1260,18 @@ tidy(s7_mod)
 ```
 The coefficient of the policy term equals `r s7_mod$coefficients["policy1"] %>% round(2)`.
 
-(CAN WE SAY WHAT THE COEFFICIENT SHOULD BE?)
+The question is, does this estimate come close to what it should be? Well, above
+we calculated effect estimates for four separate contrasts, where the fourth
+contrast did not satisfy the parallel trends assumption, but the other three
+contrasts did. So if I were summarizing across these clean contrasts I would want 
+to make a summary estimate across the DID estimates of 18, 5, and 9. One question
+is, how much weight do we put on each of the estimates? Another question is, 
+do we consider the DID estimate of 9 comparing earlier to later treated states?
+So, it isn't straightforward what the estimate should be when summarizing across 
+several contrasts. But what we show below based on the Goodman Bacon decomposition
+is that the TWFE estimator is influenced by the forbidden fourth contrast that
+doesn't meet the parallel trends assumption, so we'd like an estimator that doesn't
+suffer form this concern.
 
 We can now use the Goodman Bacon decomposition to see how much weight each of 
 the contrasts contributes to the effect estimate:
@@ -1268,13 +1290,21 @@ s7_bacon <- bacon(outcome ~ policy_n,
 s7_bacon
 ```
 
+Notice that our fourth contrast (here shown in row 3 of the table) contributes
+15% of the weight to the estimate. We want an estimator that does not use this
+contrast! 
+
+Below we confirm the weighted estimate across the rows equals the TWFE estimate
+from the regression:
+
 ```{r}
 #see the TWFE estimate
 sum(s7_bacon$estimate*s7_bacon$weight)
 ```
 Now that we know how to use the Callaway and Sant'Anna code, we can apply it to
-this example as well. Let's start by running the `att_gt()` function, remembering
-that the output is for every combination of group and time:
+this example as well. Let's start by running the `att_gt()` function. This
+time we won't display the output from `summary()`, but feel free to uncomment 
+that line to take a peak:
 
 ```{r}
 s7_cs <- att_gt(yname = "outcome", 
@@ -1284,14 +1314,13 @@ s7_cs <- att_gt(yname = "outcome",
              data = s7, 
              anticipation = 0)
 
-summary(s7_cs)
+#summary(s7_cs)
 ```
 
-Let's aggregate these ATTs using `type = simple`. This estimate considered
-only the clean contrasts of 1 and 2 and combines them by weighting by the total
+Let's aggregate the ATTs using `type = simple`. Callaway and Sant'Anna's estimate considers only the clean contrasts of 1 and 2 and combines them by weighting by the total
 time in the post-treatment period. For contrast 1, there are 16 
 time periods post treatment and for contrast 2, there are 9 periods 
-post-treatment. Thus this estimate is the weighted average: $18\times(16/25) + 5\times(9/25)=13.32$
+post-treatment. Thus this estimate is the weighted average: $18\times(16/25) + 5\times(9/25)=13.32$. 
 
 ```{r}
 #aggregate the group time average treatment effects
@@ -1323,23 +1352,19 @@ In this case, it is very helpful to plot the effect estimates over time:
 ggdid(s7_cs_ag3)
 ```
 
-For exposition's sake, let's also show the estimate using `type = "calendar"`.
-For this specific example, I don't love this aggregation -- I think for dynamic
-effects it makes things a little wonky and doesn't reveal anything super helpful:
+Here again we don't display the results using `type = "calendar"` but have included the code here in case you want to run it. 
 
 ```{r}
-#calendar time specific
-#i don't love this one...but CS say they prefer it here
-#https://bcallaway11.github.io/did/articles/did-basics.html
-s7_cs_ag4 <- aggte(s7_cs, type = "calendar")
-summary(s7_cs_ag4)
-ggdid(s7_cs_ag4)
+# s7_cs_ag4 <- aggte(s7_cs, type = "calendar")
+# summary(s7_cs_ag4)
+# ggdid(s7_cs_ag4)
 ```
 
 ### TWFE with `time_since_policy` specification
 
 But what if model TWFE with the `time_since_change` indicators? Here I run the 
-regression and pull out the effect estimates since the regression output is so large
+regression and `filter()` out the policy estimates since the regression table 
+is so large:
 
 ```{r}
 s7_mod2 <- lm(outcome ~ time_since_policy + state + factor(time), 
@@ -1356,7 +1381,7 @@ Sant'Anna model.
 **Takeway:** When the treatment effect is staggered, dynamic, and hetergeneous, 
 the TWFE regression specification will produced biased results, as will the 
 specification using a categorical variable for time since treatment. In this 
-case, it is best to use another approach like the Callaway Sant'Anna function.
+case, it is best to use another approach like the Callaway Sant'Anna function. 
 
 ## To Do
 
