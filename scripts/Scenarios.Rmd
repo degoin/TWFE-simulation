@@ -42,7 +42,7 @@ riddellPath <- c( "/data/riddell//R/x86_64-pc-linux-gnu-library/4.1/" , .libPath
 ```{r load-libraries, warning=F, message=F}
 # you will need to install these packages if you don't have them already
 # install.packages(c("here", "readxl", "tidyverse", "patchwork", "magrittr", 
-# "broom", "ggrepel",  "bacondecomp", "did"))
+# "broom", "ggrepel",  "bacondecomp", "did", "staggered"))
 
 library(here)
 library(readxl)
@@ -53,6 +53,7 @@ library(broom)
 library(ggrepel)
 library(bacondecomp)
 library(did)
+library(staggered)
 ```
 
 ## Scenario 1 (2 states by 2 time points)
@@ -1399,10 +1400,6 @@ by state to reflect the case when some states are smaller than others.
 
 ```{r, echo=F}
 #expand on the s7 dataset to include many states 
-s7 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen7", 
-                col_types = c("text", "numeric", "text", "numeric", "text", "numeric"))
-
-
 state_base1 <- s7 %>% filter(state == 1)
 length <- dim(state_base1)[1]
 state10 <- state_base1 %>% mutate(outcome = outcome + rnorm(length, 0, 2),
@@ -1624,7 +1621,14 @@ s8_cs <- att_gt(yname = "outcome",
 
 s8_cs_ag <- aggte(s8_cs, type="simple")
 summary(s8_cs_ag)
+
+lb = s8_cs_ag$overall.att - 1.96*s8_cs_ag$overall.se 
+ub = s8_cs_ag$overall.att + 1.96*s8_cs_ag$overall.se
+round(c(s8_cs_ag$overall.att, lb, ub), 2)
 ```
+The CS estimate is `r s8_cs_ag$overall.att %>% round(2)` with 95% CI `r lb %>% round(2)` 
+to `r ub %>% round(2)`.
+
 NEED TO FIGURE THIS OUT...
 Their weighted estimator is equal to $18 \times (25*6) + 5 \times (25*6)$
 
@@ -1652,6 +1656,27 @@ randomly distributed around the zero line. This is true in our example, so we
 wouldn't be concerned about violating the parallel trends assumption with these
 data. 
 
+**New addition Sun Abraham**
+
+```{r}
+table(all_states$time_first_treat, useNA = "always")
+all_states$time_first_treat2 <- all_states$time_first_treat
+all_states$time_first_treat2[all_states$time_first_treat == 0] <- Inf
+table(all_states$time_first_treat, all_states$time_first_treat2, useNA = "always")
+
+s8_sa <- staggered_sa(df = all_states,
+                      i = "state_n",
+                      t = "time",
+                      g = "time_first_treat2",
+                      y = "outcome", 
+                      estimand = "simple")
+
+s8_sa$estimate #12.12 estimate of the simple weighted average
+
+#95% CI
+round(c(s8_sa$estimate, s8_sa$estimate - 1.96*s8_sa$se, s8_sa$estimate + 1.96*s8_sa$se), 2)
+round(c(s8_sa$estimate, s8_sa$estimate - 1.96*s8_sa$se_neyman, s8_sa$estimate + 1.96*s8_sa$se_neyman), 2)
+```
 
 ## To Do
 
