@@ -10,6 +10,13 @@ output:
     theme: lumen
 ---
 
+DOES control_group = "notyettreated" CHANGE WHICH CONTRASTS GO INTO THE SIMPLE 
+EFFECT ESTIMATE? IT SEEMS LIKE IT SHOULD BUT I SHOULD DOUBLE CHECK WITH THE DATA
+AND DISCUSS WITH DANA.
+
+SHOULD I ADD CONTROL GROUP = "NOT YET TREATED" FOR LATER SCENARIOS TO BE CONSISTENT
+  OR TO COMPARE THE EFFECTS OF THIS PARAM ON THE ESTIMATION?
+
 ## Overview
 
 In this companion guide, we illustrate scenarios in which difference in differences
@@ -54,6 +61,20 @@ library(ggrepel)
 library(bacondecomp)
 library(did)
 library(staggered)
+```
+
+### Package Version
+
+Since the packages used for these analyses are relatively new, we anticipate 
+they may change over time and that these changes may affect the readers ability 
+to reproduce the results. Here are the packages we are using in the analyses,
+if your results differ, it may be because you are using newer versions of the 
+packages.
+
+```{r}
+packageVersion("bacondecomp")
+packageVersion("staggered")
+packageVersion("did")
 ```
 
 ## Scenario 1 (2 states by 2 time points)
@@ -564,6 +585,7 @@ s4_cs <- att_gt(yname = "outcome",
              idname = "state_n", 
              gname = "time_first_treat", 
              data = s4, 
+             control_group = "notyettreated",
              anticipation = 0)
 
 m2_ag <- aggte(s4_cs, type="simple")
@@ -768,6 +790,7 @@ s5_cs <- att_gt(yname = "outcome",
              idname = "state_n", 
              gname = "time_first_treat", 
              data = s5, 
+             control_group = "notyettreated",
              anticipation = 0)
 ```
 
@@ -997,7 +1020,9 @@ s6_cs <- att_gt(yname = "outcome",
              idname = "state_n", 
              gname = "time_first_treat", 
              data = s6, 
+             control_group = "notyettreated",
              anticipation = 0)
+
 
 summary(s6_cs)
 ```
@@ -1008,7 +1033,7 @@ This estimate considered only the clean contrasts (Comparisons 1 and 2 in the fi
 above) and combines them by weighting by the total
 time in the post-treatment period. For contrast 1, there are 16 
 time periods post treatment and for contrast 2, there are 9 periods 
-post-treatment. Thus this estimate is the weighted average: $10.5\times(16/25) + 7\times(9/25)=9.24$
+post-treatment. Thus this estimate is the weighted average: $10.5\times(16/25) + 7\times(9/25)=$ `r 10.5*(16/25) + 7*(9/25)`
 
 ```{r}
 #aggregate the group time average treatment effects
@@ -1045,7 +1070,8 @@ Lastly, you can use `type = "calendar"` to aggregate the effects over calendar
 time. Epidemiologically, this doesn't make a lot of sense with dynamic effects
 because it is mixing effect estimates across difference times since treatment
 was introduced. In some cases, only one comparison is contributing to the estimation
-(e.g., in calendar time periods where only one group has introduced the treatment), while at other points, two comparisons contribute. But this "knowledge" is lot
+(e.g., in calendar time periods where only one group has introduced the treatment), 
+while at other points, two comparisons contribute. But this "knowledge" is lot
 in the presentation. We don't show the output from using `type = "calendar"` but
 include the code below in case it makes sense for your setting.
 
@@ -1082,10 +1108,11 @@ time make sense? I am inclined to start by estimating a dynamic effect to see
 if the model supports the presence of a dynamic effect. If so, it is important 
 of how the policy operates after being rolled out. If there is no strong support
 for a dynamic effect, then I would consider estimating the effects separately by
-timing of introduction if that is sensible for the policy change under study (i.e., if there are only a few separate time points), or estimating an overall summary
-parameter.
+timing of introduction if that is sensible for the policy change under study 
+(i.e., if there are only a few separate time points), or estimating an overall 
+summary parameter.
 
-## Scenario 7 (4 states, staggered timing , dynamic and hetergenous treatment effects)
+## Scenario 7 (4 states, staggered timing, dynamic and hetergenous treatment effects)
 
 Scenario 7 is like Scenario 6 except now the treatment effect is dynamic AND
 heterogeneous. In this scenario, the state that implements the policy change 
@@ -1320,6 +1347,7 @@ s7_cs <- att_gt(yname = "outcome",
              idname = "state_n", 
              gname = "time_first_treat", 
              data = s7, 
+             control_group = "notyettreated",
              anticipation = 0)
 
 #summary(s7_cs)
@@ -1362,10 +1390,10 @@ ggdid(s7_cs_ag3)
 
 Here again we don't display the results using `type = "calendar"` but have included the code here in case you want to run it. 
 
-```{r}
-# s7_cs_ag4 <- aggte(s7_cs, type = "calendar")
-# summary(s7_cs_ag4)
-# ggdid(s7_cs_ag4)
+```{r, eval=F}
+s7_cs_ag4 <- aggte(s7_cs, type = "calendar")
+summary(s7_cs_ag4)
+ggdid(s7_cs_ag4)
 ```
 
 ### TWFE with `time_since_policy` specification
@@ -1393,12 +1421,15 @@ case, it is best to use another approach like the Callaway Sant'Anna function.
 
 ## Scenario 8 (24 states, staggered timing , dynamic and hetergenous treatment effects)
 
-We wanted to make a more complex scenario that may be more aligned with typical
-cases, where states are the treated units, for example. We also added variability
-in the outcome variable measured over time, with different amounts of variability
-by state to reflect the case when some states are smaller than others. 
+This scenario increases the number of treated and control units, as is common in 
+analyses across several geographic areas like states. We also added variability
+to the outcome, with different amounts of variability by state to reflect units
+containing varying sample sizes.
 
 ```{r, echo=F}
+
+set.seed(112358)
+
 #expand on the s7 dataset to include many states 
 state_base1 <- s7 %>% filter(state == 1)
 length <- dim(state_base1)[1]
@@ -1561,7 +1592,7 @@ tidy(s8_mod)
 ```
 
 Up until now, we haven't worried about the estimation of the 95% confidence interval. 
-In particular, we need to acount for the clustering on data over time within state.
+In particular, we need to account for the clustering on data over time within state.
 To do that we use the `vcovHC` function from the `sandwich` package. 
 
 ```{r}
@@ -1593,16 +1624,16 @@ iv) Treated at time 5 vs pre-treatment time for states treated at time 12: 9
 We can compare this to the output from the Goodman Bacon decomposition:
 
 ```{r}
-all_states %<>% mutate(state_n = as.numeric(as.character(state)),
-               policy_n = as.numeric(as.character(policy)))
+all_states %<>% mutate(policy_n = as.numeric(policy))
 
 s8_bacon <- bacon(outcome ~ policy_n,
       data = all_states,
-      id_var = "state_n",
+      id_var = "state",
       time_var = "time")
 
 s8_bacon
 ```
+
 We can see that the estimates are not too far off. Comparing to the decomposition
 table from scenario 7, the weights have shifted. In particular here 24% of the weight
 is put on the later treated vs. never treated states, whereas this number was 47%
@@ -1614,7 +1645,7 @@ Compare to Callaway and Sant'Anna's approach:
 ```{r}
 s8_cs <- att_gt(yname = "outcome", 
              tname = "time", 
-             idname = "state_n", 
+             idname = "state", 
              gname = "time_first_treat", 
              data = all_states, 
              anticipation = 0)
@@ -1665,7 +1696,7 @@ all_states$time_first_treat2[all_states$time_first_treat == 0] <- Inf
 table(all_states$time_first_treat, all_states$time_first_treat2, useNA = "always")
 
 s8_sa <- staggered_sa(df = all_states,
-                      i = "state_n",
+                      i = "state",
                       t = "time",
                       g = "time_first_treat2",
                       y = "outcome", 
