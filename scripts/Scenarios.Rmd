@@ -10,13 +10,6 @@ output:
     theme: lumen
 ---
 
-DOES control_group = "notyettreated" CHANGE WHICH CONTRASTS GO INTO THE SIMPLE 
-EFFECT ESTIMATE? IT SEEMS LIKE IT SHOULD BUT I SHOULD DOUBLE CHECK WITH THE DATA
-AND DISCUSS WITH DANA.
-
-SHOULD I ADD CONTROL GROUP = "NOT YET TREATED" FOR LATER SCENARIOS TO BE CONSISTENT
-  OR TO COMPARE THE EFFECTS OF THIS PARAM ON THE ESTIMATION?
-
 ## Overview
 
 In this companion guide, we illustrate scenarios in which difference in differences
@@ -63,7 +56,7 @@ library(did)
 library(staggered)
 ```
 
-### Package Version
+### Package Versions
 
 Since the packages used for these analyses are relatively new, we anticipate 
 they may change over time and that these changes may affect the readers ability 
@@ -782,9 +775,10 @@ We can also see a list of each comparison and it's weight:
 s5_bacon
 ```
 
-For pedagogical purposes, we also show the estimate if we applied the Callaway Sant’Anna estimator using the `att_gt()` function to estimate group-time ATTs.
+For pedagogical purposes, we also show the estimate if we applied the Callaway 
+Sant’Anna estimator using the `att_gt()` function to estimate group-time ATTs.
 
-```{r}
+```{r, warning=FALSE}
 s5_cs <- att_gt(yname = "outcome", 
              tname = "time", 
              idname = "state_n", 
@@ -793,6 +787,14 @@ s5_cs <- att_gt(yname = "outcome",
              control_group = "notyettreated",
              anticipation = 0)
 ```
+Note that I suppressed the warnings by using `warning=FALSE` in the R markdown
+chunk header for this specific chunk. This is because it prints more than 100
+lines of the same warning "## Warning in max(abs(b/bSigma), na.rm = TRUE): no non-missing arguments to max;
+## returning -Inf". This warning is because there is no variability in the the 
+data so the model cannot estimate a standard error. This is not realistic, and in
+a later example we will add in variability. I will suppress the warnings in this
+document whenever they are too numerous. In practice, you will want to 
+display warnings.
 
 ```{r}
 s5_cs_ag <- aggte(s5_cs, type="simple")
@@ -1014,7 +1016,7 @@ report this entire table, but it worth showing here to see how the estimated
 effect is dynamic and that decisions need to be make about how to report dynamics
 effects including whether or not to aggregate the effect, and if so, at what level.
 
-```{r}
+```{r, warning=F}
 s6_cs <- att_gt(yname = "outcome", 
              tname = "time", 
              idname = "state_n", 
@@ -1276,11 +1278,11 @@ s7_comp1 + s7_comp2 + s7_comp3 + s7_comp4 + plot_layout(guides = "collect")
 * $DID_{4 vs 3} = 29-40 = -11$
 
 Similar to the previous scenario, parallel trends is satisfied for contrasts 1-3, 
-so we can be okay with these contrasts contributed to the average effect estimate. 
+so we can be okay with these contrasts contributing to the average effect estimate. 
 Like last time, contrast 4 is the problem, and here the problem is intensified
 because the "control" state -- which was treated in an earlier period -- is 
 undergoing a large treatment effect in the "pre" period (times 5-11). This 
-makes the pre-post different in the control state larger than the pre-post difference
+makes the pre-post difference in the control state larger than the pre-post difference
 in the comparison state -- because the control state is still experiencing a stronger
 (i.e., steeper slope) treatment effect than the state that is treated at time 12. 
 This makes the DID for this group and time look negative -- like the treatment
@@ -1306,7 +1308,7 @@ So, it isn't straightforward what the estimate should be when summarizing across
 several contrasts. But what we show below based on the Goodman Bacon decomposition
 is that the TWFE estimator is influenced by the forbidden fourth contrast that
 doesn't meet the parallel trends assumption, so we'd like an estimator that doesn't
-suffer form this concern.
+suffer from this concern.
 
 We can now use the Goodman Bacon decomposition to see how much weight each of 
 the contrasts contributes to the effect estimate:
@@ -1325,7 +1327,7 @@ s7_bacon <- bacon(outcome ~ policy_n,
 s7_bacon
 ```
 
-Notice that our fourth contrast (here shown in row 3 of the table) contributes
+Notice that our fourth contrast (here shown in row 3 of the second table) contributes
 15% of the weight to the estimate. We want an estimator that does not use this
 contrast! 
 
@@ -1339,9 +1341,9 @@ sum(s7_bacon$estimate*s7_bacon$weight)
 Now that we know how to use the Callaway and Sant'Anna code, we can apply it to
 this example as well. Let's start by running the `att_gt()` function. This
 time we won't display the output from `summary()`, but feel free to uncomment 
-that line to take a peak:
+that line in the R markdown document to take a peak:
 
-```{r}
+```{r, warning=F}
 s7_cs <- att_gt(yname = "outcome", 
              tname = "time", 
              idname = "state_n", 
@@ -1353,10 +1355,12 @@ s7_cs <- att_gt(yname = "outcome",
 #summary(s7_cs)
 ```
 
-Let's aggregate the ATTs using `type = simple`. Callaway and Sant'Anna's estimate considers only the clean contrasts of 1 and 2 and combines them by weighting by the total
-time in the post-treatment period. For contrast 1, there are 16 
+Let's aggregate the ATTs using `type = simple`. Callaway and Sant'Anna's estimate
+considers only the clean contrasts of 1 and 2 and combines them by weighting by 
+the total time in the post-treatment period. For contrast 1, there are 16 
 time periods post treatment and for contrast 2, there are 9 periods 
-post-treatment. Thus this estimate is the weighted average: $18\times(16/25) + 5\times(9/25)=13.32$. 
+post-treatment. Thus this estimate is the weighted average: 
+$18\times(16/25) + 5\times(9/25)=$ `r 18*(16/25) + 5*(9/25)` 
 
 ```{r}
 #aggregate the group time average treatment effects
@@ -1365,6 +1369,9 @@ post-treatment. Thus this estimate is the weighted average: $18\times(16/25) + 5
 s7_cs_ag <- aggte(s7_cs, type="simple")
 summary(s7_cs_ag)
 ```
+**[DANA: CAN YOU CONFIRM YOU AGREE WITH WHAT I WROTE ABOVE? specifically how the 
+simple estimate is calculated.]**
+
 Alternatively, we can specify `type = "group"` to get separate effect estimates 
 according to time of implementation and see that these match our by-hand calculations: 
 
@@ -1382,7 +1389,21 @@ table!
 s7_cs_ag3 <- aggte(s7_cs, type="dynamic")
 summary(s7_cs_ag3)
 ```
-In this case, it is very helpful to plot the effect estimates over time:
+
+Note that because the treatment effect is heterogeneous (the later treated state
+has a smaller treatment effect than the earlier treated state) and because there
+is less observed treated time for the later state, this means that the treatment
+effect estimates for event times 0 through 8 combine across the two treated 
+states but for times 9 and over those effect estimates are based only on the 
+first treated state. Without knowing this, it looks like the treatment effect 
+"jumps" between event times 8 and 9 and that there is a slope increase, but this 
+is an artifact based on combining across states with heterogeneous effects with 
+different lengths of observed treatment times.
+
+We can also plot the effect estimates over time and see this jump and slope 
+increase between event times 8 and 9. Note also the confidence interval estimates
+that occurred for times 0 through 8 since there were two data points that could
+be used to estimate standard errors.
 
 ```{r}
 ggdid(s7_cs_ag3)
@@ -1398,9 +1419,9 @@ ggdid(s7_cs_ag4)
 
 ### TWFE with `time_since_policy` specification
 
-But what if model TWFE with the `time_since_change` indicators? Here I run the 
-regression and `filter()` out the policy estimates since the regression table 
-is so large:
+But what if we run the TWFE model with the `time_since_change` indicators? Here,
+I run the regression and `filter()` out the policy estimates for easy viewing 
+since the regression table is so large:
 
 ```{r}
 s7_mod2 <- lm(outcome ~ time_since_policy + state + factor(time), 
@@ -1419,83 +1440,91 @@ the TWFE regression specification will produced biased results, as will the
 specification using a categorical variable for time since treatment. In this 
 case, it is best to use another approach like the Callaway Sant'Anna function. 
 
-## Scenario 8 (24 states, staggered timing , dynamic and hetergenous treatment effects)
+## Scenario 8 (24 states, staggered timing, dynamic and hetergenous treatment effects)
 
-This scenario increases the number of treated and control units, as is common in 
-analyses across several geographic areas like states. We also added variability
-to the outcome, with different amounts of variability by state to reflect units
-containing varying sample sizes.
+So far, we have considered toy examples where the outcomes didn't incorporate 
+noise. This was great for getting started, but doesn't reflect the imprecision
+in estimates based on real-world data. Furthermore, we couldn't estimate 
+standard errors because there was not error in the estimation. 
+
+This scenario is more realistic. It increases the number of treated and control 
+units, as is common in analyses across several geographic areas like states. We
+also added variability to the outcome, with different amounts of variability by 
+state to reflect units containing varying sample sizes.
+
+```{r}
+s8_start <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen8", 
+                col_types = c("text", "numeric", "text", "numeric", "text", "numeric"))
+
+# we hid some code here from displaying in the html version of this file where
+# we build up this scenario and add noise. Please view the Rmd document to see
+# these lines of code!
+```
 
 ```{r, echo=F}
-
 set.seed(112358)
-
-#expand on the s7 dataset to include many states 
-state_base1 <- s7 %>% filter(state == 1)
+#expand on the s8 dataset to include many states 
+state_base1 <- s8_start %>% filter(state == 1)
 length <- dim(state_base1)[1]
-state10 <- state_base1 %>% mutate(outcome = outcome + rnorm(length, 0, 2),
+state10 <- state_base1 %>% mutate(outcome = outcome  + rnorm(length, 0, 2),
                                   state = 10)
-state11 <- state_base1 %>% mutate(outcome = outcome + rnorm(length, 0, 8),
+state11 <- state_base1 %>% mutate(outcome = outcome  + rnorm(length, 0, 8),
                                   state = 11)
-state12 <- state_base1 %>% mutate(outcome = outcome + rnorm(length, 0, 2.3),
+state12 <- state_base1 %>% mutate(outcome = outcome  + rnorm(length, 0, 2.3),
                                   state = 12)
-state13 <- state_base1 %>% mutate(outcome = outcome + rnorm(length, 0, 3),
+state13 <- state_base1 %>% mutate(outcome = outcome  + rnorm(length, 0, 3),
                                   state = 13)
-state14 <- state_base1 %>% mutate(outcome = outcome + rnorm(length, 0, 1),
+state14 <- state_base1 %>% mutate(outcome = outcome  + rnorm(length, 0, 1),
                                   state = 14)
-state15 <- state_base1 %>% mutate(outcome = outcome + rnorm(length, 0, 5),
+state15 <- state_base1 %>% mutate(outcome = outcome  + rnorm(length, 0, 5),
                                   state = 15)
 states_1015 <- bind_rows(state10, state11, state12, state13, state14, state15)
 
-
-state_base2 <- s7 %>% filter(state == 2)
+state_base2 <- s8_start %>% filter(state == 2)
 length <- dim(state_base2)[1]
-state20 <- state_base2 %>% mutate(outcome = outcome + rnorm(length, 0, 2),
+state20 <- state_base2 %>% mutate(outcome = outcome  + rnorm(length, 0, 2),
                                   state = 20)
-state21 <- state_base2 %>% mutate(outcome = outcome + rnorm(length, 0, 8),
+state21 <- state_base2 %>% mutate(outcome = outcome  + rnorm(length, 0, 8),
                                   state = 21)
-state22 <- state_base2 %>% mutate(outcome = outcome + rnorm(length, 0, 2.3),
+state22 <- state_base2 %>% mutate(outcome = outcome  + rnorm(length, 0, 2.3),
                                   state = 22)
-state23 <- state_base2 %>% mutate(outcome = outcome + rnorm(length, 0, 3),
+state23 <- state_base2 %>% mutate(outcome = outcome  + rnorm(length, 0, 3),
                                   state = 23)
-state24 <- state_base2 %>% mutate(outcome = outcome + rnorm(length, 0, 1),
+state24 <- state_base2 %>% mutate(outcome = outcome  + rnorm(length, 0, 1),
                                   state = 24)
-state25 <- state_base2 %>% mutate(outcome = outcome + rnorm(length, 0, 5),
+state25 <- state_base2 %>% mutate(outcome = outcome  + rnorm(length, 0, 5),
                                   state = 25)
 states_2025 <- bind_rows(state20, state21, state22, state23, state24, state25)
 
-
-state_base3 <- s7 %>% filter(state == 3)
+state_base3 <- s8_start %>% filter(state == 3)
 length <- dim(state_base3)[1]
-state30 <- state_base3 %>% mutate(outcome = outcome + rnorm(length, 0, 2),
+state30 <- state_base3 %>% mutate(outcome = outcome  + rnorm(length, 0, 2),
                                   state = 30)
-state31 <- state_base3 %>% mutate(outcome = outcome + rnorm(length, 0, 8),
+state31 <- state_base3 %>% mutate(outcome = outcome  + rnorm(length, 0, 8),
                                   state = 31)
-state32 <- state_base3 %>% mutate(outcome = outcome + rnorm(length, 0, 2.3),
+state32 <- state_base3 %>% mutate(outcome = outcome  + rnorm(length, 0, 2.3),
                                   state = 32)
-state33 <- state_base3 %>% mutate(outcome = outcome + rnorm(length, 0, 3),
+state33 <- state_base3 %>% mutate(outcome = outcome  + rnorm(length, 0, 3),
                                   state = 33)
-state34 <- state_base3 %>% mutate(outcome = outcome + rnorm(length, 0, 1),
+state34 <- state_base3 %>% mutate(outcome = outcome  + rnorm(length, 0, 1),
                                   state = 34)
-state35 <- state_base3 %>% mutate(outcome = outcome + rnorm(length, 0, 5),
+state35 <- state_base3 %>% mutate(outcome = outcome  + rnorm(length, 0, 5),
                                   state = 35)
 states_3035 <- bind_rows(state30, state31, state32, state33, state34, state35)
 
-
-
-state_base4 <- s7 %>% filter(state == 4)
+state_base4 <- s8_start %>% filter(state == 4)
 length <- dim(state_base4)[1]
-state40 <- state_base4 %>% mutate(outcome = outcome + rnorm(length, 0, 2),
+state40 <- state_base4 %>% mutate(outcome = outcome  + rnorm(length, 0, 2),
                                   state = 40)
-state41 <- state_base4 %>% mutate(outcome = outcome + rnorm(length, 0, 8),
+state41 <- state_base4 %>% mutate(outcome = outcome  + rnorm(length, 0, 8),
                                   state = 41)
-state42 <- state_base4 %>% mutate(outcome = outcome + rnorm(length, 0, 2.3),
+state42 <- state_base4 %>% mutate(outcome = outcome  + rnorm(length, 0, 2.3),
                                   state = 42)
-state43 <- state_base4 %>% mutate(outcome = outcome + rnorm(length, 0, 3),
+state43 <- state_base4 %>% mutate(outcome = outcome  + rnorm(length, 0, 3),
                                   state = 43)
-state44 <- state_base4 %>% mutate(outcome = outcome + rnorm(length, 0, 1),
+state44 <- state_base4 %>% mutate(outcome = outcome  + rnorm(length, 0, 1),
                                   state = 44)
-state45 <- state_base4 %>% mutate(outcome = outcome + rnorm(length, 0, 5),
+state45 <- state_base4 %>% mutate(outcome = outcome  + rnorm(length, 0, 5),
                                   state = 45)
 
 states_4045 <- bind_rows(state40, state41, state42, state43, state44, state45)
@@ -1503,7 +1532,7 @@ states_4045 <- bind_rows(state40, state41, state42, state43, state44, state45)
 all_states <- bind_rows(states_1015, states_2025, states_3035, states_4045)
 ```
 
-```{r}
+```{r, echo = F}
 all_states %<>% mutate(ever_trt = case_when(state > 25 ~ "treated", 
                                             state <= 25 ~ "untreated")
                        )
@@ -1512,8 +1541,8 @@ ggplot(all_states, aes(x = time, y = outcome)) +
   geom_line(aes(col = factor(time_first_treat), group = state)) +
   geom_point(aes(fill = factor(time_first_treat), pch = ever_trt)) +
   labs(title = "Scenario 8 (Numerous states, staggered, dynamic, and heterogeneous)") +
-  geom_vline(aes(xintercept = 4.5), lty = 2, col = treated5_green) + 
-  geom_vline(aes(xintercept = 11.5), lty = 2, col = treated12_red) +
+  geom_vline(aes(xintercept = 14.5), lty = 2, col = treated5_green) + 
+  geom_vline(aes(xintercept = 21.5), lty = 2, col = treated12_red) +
   scale_color_manual(values = c(control1_blue, treated5_green, treated12_red)) +
   scale_fill_manual(values = c(control1_blue, treated5_green, treated12_red)) +
   scale_shape_manual(values = c(23, 21)) + 
@@ -1526,12 +1555,8 @@ ggplot(all_states, aes(x = time, y = outcome)) +
 s8_comp1 <- ggplot(all_states %>% filter(state <= 35), aes(x = time, y = outcome)) +   
   geom_line(aes(col = factor(ever_trt), group = state)) + 
   geom_point(aes(fill = factor(ever_trt), pch = ever_trt, group = state)) + labs(title = "A) Contrast 1 (Treated vs. never-treated)") +
-  geom_vline(aes(xintercept = 4.5), lty = 2, col = treated5_green) +
-  # geom_label_repel(data = s7_DID1 %>% filter(state %in% c(1,2,3)),
-  #                 aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state), show.legend = F) +
-  # geom_label_repel(data = s7_DID1 %>% filter(state %in% c(1,2,3)),
-  #                 aes(y = mean_5_20, x = 12.5, label = paste("mean_y:", mean_5_20), col = state), show.legend = F) +
-  scale_x_continuous(limits = c(1, 20))  + 
+  geom_vline(aes(xintercept = 14.5), lty = 2, col = treated5_green) +
+  scale_x_continuous(limits = c(1, 30))  + 
   scale_color_manual(values = c(treated5_green, control1_blue)) +
   scale_fill_manual(values = c(treated5_green, control1_blue)) +
   scale_shape_manual(values = c(21, 23)) + 
@@ -1540,42 +1565,30 @@ s8_comp1 <- ggplot(all_states %>% filter(state <= 35), aes(x = time, y = outcome
 s8_comp2 <- ggplot(all_states %>% filter(state <= 25 | state >= 40), aes(x = time, y = outcome)) +   
   geom_line(aes(col = factor(ever_trt), group = state)) + 
   geom_point(aes(fill = factor(ever_trt), pch = ever_trt, group = state)) + labs(title = "B) Contrast 2 (Treated vs. never-treated)") +
-  geom_vline(aes(xintercept = 11.5), lty = 2, col = treated12_red) +
-  # geom_label_repel(data = s7_DID2 %>% filter(state %in% c(1,2,4)),
-  #                  aes(y = mean_1_11, x = 6, label = paste("mean_y:", mean_1_11), col = state), show.legend = F) +
-  # geom_label_repel(data = s7_DID2 %>% filter(state %in% c(1,2,4)),
-  #                  aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state), show.legend = F) +
-  scale_x_continuous(limits = c(1, 20))  + 
+  geom_vline(aes(xintercept = 21.5), lty = 2, col = treated12_red) +
+  scale_x_continuous(limits = c(1, 30))  + 
   scale_color_manual(values = c(treated12_red, control1_blue)) +
   scale_fill_manual(values = c(treated12_red, control1_blue)) +
   scale_shape_manual(values = c(21, 23)) + 
   theme_bw() 
 
-s8_comp4 <- ggplot(all_states %>% filter(state >= 30, time >= 5), aes(x = time, y = outcome)) +
+s8_comp4 <- ggplot(all_states %>% filter(state >= 30, time >= 15), aes(x = time, y = outcome)) +
   geom_line(aes(col = factor(time_first_treat), group = state)) + 
   geom_point(aes(fill = factor(time_first_treat), group = state, pch = ever_trt), show.legend = F) + 
   labs(title = "C) Contrast 4 (Later vs. earlier-treated)") +
-  geom_vline(aes(xintercept = 11.5), lty = 2, col = treated12_red) +
-  # geom_label_repel(data = s7_DID4 %>% filter(state %in% c(3,4)),
-  #                  aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state), show.legend = F) +
-  # geom_label_repel(data = s7_DID4 %>% filter(state %in% c(3,4)),
-  #                  aes(y = mean_12_20, x = 16, label = paste("mean_y:", mean_12_20), col = state), show.legend = F) + 
-  scale_x_continuous(limits = c(1, 20))  + 
+  geom_vline(aes(xintercept = 21.5), lty = 2, col = treated12_red) +
+  scale_x_continuous(limits = c(1, 30))  + 
   scale_color_manual(values = c(treated5_green, treated12_red)) +
   scale_fill_manual(values = c(treated5_green, treated12_red)) +
   scale_shape_manual(values = c(23)) + 
   theme_bw() 
 
-s8_comp3 <- ggplot(all_states %>% filter(state >= 30, time < 12), aes(x = time, y = outcome)) +   
+s8_comp3 <- ggplot(all_states %>% filter(state >= 30, time < 22), aes(x = time, y = outcome)) +   
   geom_line(aes(col = factor(time_first_treat), group = state)) + 
   geom_point(aes(fill = factor(time_first_treat), group = state, pch = ever_trt), show.legend = F) +
   labs(title = "D) Contrast 3 (Earlier vs. later-treated)") +
-  geom_vline(aes(xintercept = 4.5), lty = 2, col = treated5_green) +
-  # geom_label_repel(data = s7_DID3 %>% filter(state %in% c(3,4)),
-  #                  aes(y = mean_1_4, x = 2.5, label = paste("mean_y:", mean_1_4), col = state), show.legend = F) +
-  # geom_label_repel(data = s7_DID3 %>% filter(state %in% c(3,4)),
-  #                  aes(y = mean_5_11, x = 8, label = paste("mean_y:", mean_5_11), col = state), show.legend = F) + 
-  scale_x_continuous(limits = c(1, 20))  + 
+  geom_vline(aes(xintercept = 14.5), lty = 2, col = treated5_green) +
+  scale_x_continuous(limits = c(1, 30))  + 
   scale_color_manual(values = c(treated5_green, treated12_red)) +
   scale_fill_manual(values = c(treated5_green, treated12_red)) +
   scale_shape_manual(values = c(23)) + 
@@ -1585,17 +1598,19 @@ s8_comp1 + s8_comp2 + s8_comp3 + s8_comp4 + plot_layout(guides = "collect")
 ```
 We start by running the linear model as we've done previously:
 ```{r}
-
 s8_mod <- lm(outcome ~ policy + factor(state) + factor(time), 
              data = all_states)
 tidy(s8_mod)
 ```
 
-Up until now, we haven't worried about the estimation of the 95% confidence interval. 
-In particular, we need to account for the clustering on data over time within state.
-To do that we use the `vcovHC` function from the `sandwich` package. 
+Up until now, we haven't worried about the estimation of the 95% confidence 
+interval because our previous datasets didn't contain any noise. In practice,
+we want to estimate confidence intervals and to to that correctly, we need to 
+account for the clustering on data over time within state. To do that we use the 
+`vcovHC` function from the `sandwich` package. 
 
 ```{r}
+#install.packages("sandwich")
 library(sandwich)
 m2_var <- vcovHC(s8_mod)
 ```
@@ -1614,12 +1629,15 @@ to `r round(ub, 1)`.
 
 We can use the Bacon decomposition to examine the contrasts contributing to the 
 TWFE estimate. I set up this scenario such that the effects should be the same
-as for scenario 7. In that scenario the estimates equalled:
+as for scenario 7, though this time the pre-treatment period is longer than in 
+scenario 7.
 
-i) Treated at time 5 vs. never-treated: 18 
-ii) Treated at time 12 vs. never-treated: 5
-iii) Treated at time 12 vs post-treatment time for states treated at time 5: -11
-iv) Treated at time 5 vs pre-treatment time for states treated at time 12: 9
+The DID contrasts for the four comparisons are:
+
+i) Treated at time 15 vs. never-treated: 18 
+ii) Treated at time 22 vs. never-treated: 5
+iii) Treated at time 22 vs. post-treatment time for states treated at time 5: -11
+iv) Treated at time 5 vs. pre-treatment time for states treated at time 22: 9
 
 We can compare this to the output from the Goodman Bacon decomposition:
 
@@ -1634,11 +1652,12 @@ s8_bacon <- bacon(outcome ~ policy_n,
 s8_bacon
 ```
 
-We can see that the estimates are not too far off. Comparing to the decomposition
-table from scenario 7, the weights have shifted. In particular here 24% of the weight
-is put on the later treated vs. never treated states, whereas this number was 47%
-in scenario 7. Worryingly, the weight on the forbidden contrast increased from 15%
-in scenario 7 to 31% in this scenario. This is because the weight is proportional to **....[TO FILL IN]**
+We can see that the estimates displayed in the second table are not too far off
+from the DID contrasts listed above. For this scenario, 84% of the weight is on 
+the treated vs. untreated and about 10% of the weight is on the earlier vs. the 
+later treated, with only 6% of the weight on the forbidden contrast. In the 
+next section we will see how these weights change if pre-treatment time is 
+shortened.
 
 Compare to Callaway and Sant'Anna's approach:
 
@@ -1648,6 +1667,7 @@ s8_cs <- att_gt(yname = "outcome",
              idname = "state", 
              gname = "time_first_treat", 
              data = all_states, 
+             control_group = "notyettreated",
              anticipation = 0)
 
 s8_cs_ag <- aggte(s8_cs, type="simple")
@@ -1660,17 +1680,26 @@ round(c(s8_cs_ag$overall.att, lb, ub), 2)
 The CS estimate is `r s8_cs_ag$overall.att %>% round(2)` with 95% CI `r lb %>% round(2)` 
 to `r ub %>% round(2)`.
 
-NEED TO FIGURE THIS OUT...
-Their weighted estimator is equal to $18 \times (25*6) + 5 \times (25*6)$
+The simple ATT is a weighted average (based on the amount of time in the 
+post-treatment period) of the estimated effects for the treated groups. To figure
+out what the group specific estimate are we can ask for the estimates by group:
 
-Looking at the effects by group now: 
 ```{r}
 s8_cs_ag2 <- aggte(s8_cs, type = "group")
 summary(s8_cs_ag2)
 ```
-(Was expecting 18 and 5 -- possible we are off just due to random error - need to 
-rerun with a different seed)
+And we can confirm how the simple weighted estimate was calculated:
 
+```{r}
+s8_cs_ag2$att.egt[1]*(16/25) + s8_cs_ag2$att.egt[2]*(9/25)
+```
+
+NOTE: (Was expecting 18 and 5 as the group specific estimates -- possible we are
+off just due to random error - need to rerun with a different seed or with less
+variability and see if that is true)
+
+Finally, we can look at these effect estimated separately for each time since 
+the intervention began and graph them: 
 
 ```{r}
 s8_cs_ag3 <- aggte(s8_cs, type="dynamic")
@@ -1687,14 +1716,24 @@ randomly distributed around the zero line. This is true in our example, so we
 wouldn't be concerned about violating the parallel trends assumption with these
 data. 
 
-**New addition Sun Abraham**
+We can also calculate the Sun & Abraham estimator. (We couldn't run this for the
+other scenarios because the function throws an error when if cannot estimate the
+standard errors for those scenarios.) To use the `staggered_sa` function, we 
+need to add a new variable where the `time_first_treat` variable is set to `Inf` 
+for all states that were never-treated:
 
 ```{r}
 table(all_states$time_first_treat, useNA = "always")
 all_states$time_first_treat2 <- all_states$time_first_treat
 all_states$time_first_treat2[all_states$time_first_treat == 0] <- Inf
 table(all_states$time_first_treat, all_states$time_first_treat2, useNA = "always")
+```
 
+For this function, we need to specify the data frame in the `df` argument, the
+clustering unit in the `i` argument, the time unit in the `t` argument. Here we 
+use the newly-defined `time_first_treat2` as the grouping variable `g`. 
+
+```{r}
 s8_sa <- staggered_sa(df = all_states,
                       i = "state",
                       t = "time",
@@ -1702,12 +1741,64 @@ s8_sa <- staggered_sa(df = all_states,
                       y = "outcome", 
                       estimand = "simple")
 
-s8_sa$estimate #12.12 estimate of the simple weighted average
+s8_sa$estimate
+```
 
+The estimate of the treatment effect is `r s8_sa$estimate` and we can calculate
+it's CI using either of these:
+
+```{r}
 #95% CI
 round(c(s8_sa$estimate, s8_sa$estimate - 1.96*s8_sa$se, s8_sa$estimate + 1.96*s8_sa$se), 2)
 round(c(s8_sa$estimate, s8_sa$estimate - 1.96*s8_sa$se_neyman, s8_sa$estimate + 1.96*s8_sa$se_neyman), 2)
 ```
+
+For this example, the Callaway & Sant'Anna and Sun & Abraham estimates are quite
+close and have overlapping confidence intervals. They're both higher than the 
+TWFE estimate because they do not use information based on the forbidden contrast.
+
+## Scenario 9
+
+Same as above but limit the pre-time
+
+```{r}
+all_states2 <- all_states %>% filter(time >= 10)
+```
+
+```{r}
+s9_mod <- lm(outcome ~ policy + factor(state) + factor(time), 
+             data = all_states2)
+tidy(s9_mod)
+```
+
+Add sentence about CIs...
+
+```{r}
+m2_var <- vcovHC(s9_mod)
+
+est = summary(s9_mod)$coefficients["policy1", "Estimate"] 
+lb = summary(s9_mod)$coefficients["policy1", "Estimate"] - 1.96*sqrt(m2_var["policy1","policy1"]) 
+ub = summary(s9_mod)$coefficients["policy1", "Estimate"] + 1.96*sqrt(m2_var["policy1","policy1"])
+```
+
+Add sentence about how length of pre-time affects the TWFE estimate
+
+We can compare this to the output from the Goodman Bacon decomposition:
+
+```{r}
+all_states2 %<>% mutate(policy_n = as.numeric(policy))
+
+s9_bacon <- bacon(outcome ~ policy_n,
+      data = all_states2,
+      id_var = "state",
+      time_var = "time")
+
+s9_bacon
+```
+
+[See that the weights are all different]
+
+[Add in the CS and other approaches]
 
 ## To Do
 
@@ -1735,15 +1826,14 @@ maybe try implementing this example
 #                   id_var = "state_n",
 #                   time_var = "time")
 ```
-```
 
 ```{r, echo=F}
-ggplot(s7, aes(x = time, y = outcome)) + 
-  geom_point(aes(col = factor(state))) + labs(title = "Scenario 7 (Staggered, dynamic, and heterogeneous)") +
-  geom_line(aes(col = factor(state))) + 
-  geom_vline(aes(xintercept = 4.5), lty = 2, col = "#005a32") + 
-  geom_vline(aes(xintercept = 11.5), lty = 2, col = "#99000d") +
-  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) +
-  theme_bw()
+# ggplot(s7, aes(x = time, y = outcome)) +
+#  geom_point(aes(col = factor(state))) + labs(title = "Scenario 7 (Staggered, dynamic, and heterogeneous)") +
+#  geom_line(aes(col = factor(state))) +
+#  geom_vline(aes(xintercept = 4.5), lty = 2, col = "#005a32") +
+#  geom_vline(aes(xintercept = 11.5), lty = 2, col = "#99000d") +
+#  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) +
+#  theme_bw()
 ```
 
