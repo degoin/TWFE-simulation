@@ -5,6 +5,7 @@ library(did)
 library(sandwich)
 library(ggrepel)
 library(staggered)
+library(forecast)
 
 #source in helpfer functions used in Ben-Micheal approach
 source("helper_func_ed.R")
@@ -38,6 +39,7 @@ df_ptb <- df_ptb %>%
 
 num_months <- 12 * (2016 - 2011 + 1)
 # we have 72 months of data
+# double months of data for investigation of influence of panel length on results 
 
 # Alaska, Massachusetts, Minnesota, Mississippi, and Virginia have fewer observations indf_ptb because they implemented revised birth certificate later
 # don't want to include this type of heterogeneity at this point, so add more data for them 
@@ -105,7 +107,70 @@ dat$A[is.na(dat$A)] <- 0
 
 # create month indicators from beginning to end of study 
 dat <- dat %>% arrange(FIPS, month)
-dat <- dat %>% group_by(FIPS) %>% mutate(month_ind = 1:num_months)
+dat <- dat %>% group_by(FIPS) %>% mutate(month_ind = 1:num_months, 
+                                          month_c = month(month)) %>% ungroup()
+
+# simulate future ptb rates for another 72 months 
+
+
+add_ptb_yrs <- function(state) {
+f1 <- auto.arima(y = dat %>% ungroup() %>% filter(State==state) %>% arrange(month_ind) %>% select(ptb_prop2), 
+                 lambda = "auto")
+
+coef <- coef(f1)
+try(rm(ar))
+if (is.na(coef["ar1"])) ar <- NULL 
+if (!is.na(coef["ar1"])) ar <- coef["ar1"] 
+if (!is.na(coef["ar2"])) ar <- c(ar,coef["ar2"]) 
+if (!is.na(coef["ar3"])) ar <- c(ar,coef["ar3"]) 
+if (!is.na(coef["ar4"])) ar <- c(ar,coef["ar4"]) 
+if (!is.na(coef["ar5"])) ar <- c(ar,coef["ar5"]) 
+
+try(rm(ma)) 
+if (is.na(coef["ma1"])) ma <- NULL 
+if (!is.na(coef["ma1"])) ma <- coef["ma1"] 
+if (!is.na(coef["ma2"])) ma <- c(ma,coef["ma2"]) 
+if (!is.na(coef["ma3"])) ma <- c(ma,coef["ma3"]) 
+if (!is.na(coef["ma4"])) ma <- c(ma,coef["ma4"]) 
+if (!is.na(coef["ma5"])) ma <- c(ma,coef["ma5"]) 
+
+
+diff <- f1$arma[length(f1$arma)-1] 
+ar_order <- ifelse(is.null(ar), 0, length(ar))
+ma_order <- ifelse(is.null(ma), 0, length(ma))
+intercept <- ifelse(is.na(coef["intercept"]), 0,  coef["intercept"])
+
+# simulate from model, using the SD of the original series to make sure it's on the correct scale 
+f2 <- arima.sim(n=72, model=list(order=c(ar_order, diff, ma_order), ar=ar, ma=ma), sd=sqrt(var(dat$ptb_prop2[dat$State==state], na.rm=T)))
+
+# add mean back to create ptb rates for 72 more months 
+if(diff==1) {
+df_t <- dat %>% filter(State==state)  %>% mutate(ptb_prop2 = as.numeric(f2[-1] + mean(dat$ptb_prop2[dat$State==state], na.rm=T)), 
+                                                 year = c(rep(2017,12), rep(2018, 12), rep(2019, 12),rep(2020, 12), rep(2021, 12), rep(2022,12)), 
+                                                 month_ind = 73:144, 
+                                                 month = seq(as.POSIXct("2017-01-01", format="%Y-%m-%d"), by = "month", length.out = num_months)) %>% 
+                                          mutate(ptb_prop = ptb_prop2/100)
+  }
+if(diff==0) {
+  df_t <- dat %>% filter(State==state)  %>% mutate(ptb_prop2 = as.numeric(f2 + mean(dat$ptb_prop2[dat$State==state], na.rm=T)), 
+                                                   year = c(rep(2017,12), rep(2018, 12), rep(2019, 12),rep(2020, 12), rep(2021, 12), rep(2022,12)), 
+                                                   month_ind = 73:144, 
+    month = seq(as.POSIXct("2017-01-01", format="%Y-%m-%d"), by = "month", length.out = num_months)) %>% 
+  
+    mutate(ptb_prop = ptb_prop2/100)
+}
+
+#ggplot(dat %>% filter(State==state)) + geom_line(aes(x=month_ind, y=ptb_prop2)) +
+#  geom_line(aes(x=month_ind, y=f1$fitted), col="blue") + geom_line(data=df_t, aes(x=month_ind, y=ptb_prop2))
+
+return(df_t)
+}
+
+states <- unique(dat$State)
+ls_ptb_add <- lapply(1:length(states), function(x) add_ptb_yrs(states[x]))
+df_ptb_add <- do.call(rbind, ls_ptb_add)
+
+dat2 <- data.frame(rbind(dat, df_ptb_add)) %>% arrange(State, month)
 
 #Note for Dana: for AK and other states where data was added: there values equal NA for many of the variables. Is this okay for how we use them going forward? 
 # I would have thought we'd want values for those.
