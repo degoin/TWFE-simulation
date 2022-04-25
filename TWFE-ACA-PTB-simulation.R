@@ -170,7 +170,7 @@ states <- unique(dat$State)
 ls_ptb_add <- lapply(1:length(states), function(x) add_ptb_yrs(states[x]))
 df_ptb_add <- do.call(rbind, ls_ptb_add)
 
-dat2 <- data.frame(rbind(dat, df_ptb_add)) %>% arrange(State, month)
+dat <- data.frame(rbind(dat, df_ptb_add)) %>% arrange(State, month)
 
 #Note for Dana: for AK and other states where data was added: there values equal NA for many of the variables. Is this okay for how we use them going forward? 
 # I would have thought we'd want values for those.
