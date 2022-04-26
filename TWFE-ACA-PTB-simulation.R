@@ -172,6 +172,10 @@ df_ptb_add <- do.call(rbind, ls_ptb_add)
 
 dat <- data.frame(rbind(dat, df_ptb_add)) %>% arrange(State, month)
 
+# update number of months to reflect additional follow up time
+num_months <- 144 
+
+
 #Note for Dana: for AK and other states where data was added: there values equal NA for many of the variables. Is this okay for how we use them going forward? 
 # I would have thought we'd want values for those.
 
@@ -680,7 +684,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
 }
 
 
-system.time(results_ls <- lapply(1:100, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.02, -0.01), DTE = c(-0.01, -0.015, -0.02))))
+system.time(results_ls <- lapply(1:10, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.02, -0.01), DTE = c(-0.01, -0.015, -0.02))))
 #785.424 for 5 iterations (13 minutes/2.6 minutes per iteration) seconds on timberwolf
 #4.4 hours for 100 iterations - starting at 11:50am - should be done by 4:30pm ish
 
