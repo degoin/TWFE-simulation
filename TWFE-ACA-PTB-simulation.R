@@ -147,14 +147,14 @@ f2 <- arima.sim(n=72, model=list(order=c(ar_order, diff, ma_order), ar=ar, ma=ma
 if(diff==1) {
 df_t <- dat %>% filter(State==state)  %>% mutate(ptb_prop2 = as.numeric(f2[-1] + mean(dat$ptb_prop2[dat$State==state], na.rm=T)), 
                                                  year = c(rep(2017,12), rep(2018, 12), rep(2019, 12),rep(2020, 12), rep(2021, 12), rep(2022,12)), 
-                                                 month_ind = 73:144, 
+                                                 month_ind = 73:144, A=max(A),
                                                  month = seq(as.POSIXct("2017-01-01", format="%Y-%m-%d"), by = "month", length.out = num_months)) %>% 
                                           mutate(ptb_prop = ptb_prop2/100)
   }
 if(diff==0) {
   df_t <- dat %>% filter(State==state)  %>% mutate(ptb_prop2 = as.numeric(f2 + mean(dat$ptb_prop2[dat$State==state], na.rm=T)), 
                                                    year = c(rep(2017,12), rep(2018, 12), rep(2019, 12),rep(2020, 12), rep(2021, 12), rep(2022,12)), 
-                                                   month_ind = 73:144, 
+                                                   month_ind = 73:144, A=max(A),
     month = seq(as.POSIXct("2017-01-01", format="%Y-%m-%d"), by = "month", length.out = num_months)) %>% 
   
     mutate(ptb_prop = ptb_prop2/100)
@@ -378,7 +378,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   #m1_var_i <- sandwich(m1_i)
   m1b_hte_var_i <- vcovHC(m1b_hte_i, type="HC3")
  
-  print("hetergeneous: gtATT among those who eventuall get intervention") 
+  print("hetergeneous: gtATT among those who eventually get intervention") 
   # estimate effects using group-time ATT among those who eventually get the intervention 
   m2_hte_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_hte_i, anticipation=0, control_group = "notyettreated")
   m2_hte_ea_ag <- aggte(m2_hte_ea, type="group")
