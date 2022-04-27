@@ -5,27 +5,27 @@ library(did)
 library(sandwich)
 library(ggrepel)
 
-set.seed(38525753)
+set.seed(461)
+#source in helpfer functions used in Ben-Micheal approach
+source("helper_func_ed.R")
 
-# combine all years into one data frame
+# combine all years of state-month PTB rates into one data frame
 df_ls <- list()
 for(i in 2011:2016) {
-df_ls[[i - 2010]] <- read.csv(paste0("/Users/danagoin/Documents/Research projects/TWFE/data/state-month-ptb-2-",i,".csv"))
-#df_ls[[i - 2010]] <- read.csv(paste0("./intermediate-data/state-month-ptb-2-",i,".csv"))
-if (i >2015) {
-  df_ls[[i-2010]] <- df_ls[[i-2010]] %>% rename(MRSTATEPSTL = MRSTATE) 
-}
+  df_ls[[i - 2010]] <- read.csv(paste0("./data/simulation-data/after-exclusions/state-month-ptb-2-",i,".csv"))
+  if (i >2015) {
+    df_ls[[i-2010]] <- df_ls[[i-2010]] %>% rename(MRSTATEPSTL = MRSTATE) 
+  }
 }
 
 df_ptb <- do.call(rbind, df_ls)
 
+
 # merge on Medicaid expansion dates 
-df_e <- read_xlsx("/Users/danagoin/Documents/Research projects/TWFE/data/ACA-expansion.xlsx")
-#df_e <- read_xlsx("../TWFE/ACA-expansion.xlsx")
-states <- read.csv("/Users/danagoin/Documents/Research projects/TWFE/data/state-abbrev.csv")
-#states <- read.csv("../TWFE/state-abbrev.csv")
+df_e <- read_xlsx("./data/ACA-expansion.xlsx")
+states <- read.csv("./data/state-abbrev.csv")
 states <- states %>% rename(State = Name, MRSTATEPSTL = Postal.Code)
-df_e <- left_join(df_e, states, by="State")
+df_e <- left_join(df_e, states, by = "State")
 
 
 df_ptb <- left_join(df_ptb, df_e, by="MRSTATEPSTL")
@@ -91,9 +91,8 @@ d5 <- data.frame(MRSTATEPSTL = "VA", DOB_MM = NA, ptb_prop = NA, ptb_prop2 = NA,
 d5$year <- as.numeric(substr(as.character(d5$month),1,4))
 m_add5 <- d5[!d5$month %in% df_ptb$month[df_ptb$state_name=="Virginia"],]
 
-dat <- data.frame(rbind(df_ptb, m_add1, m_add2, m_add3, m_add4, m_add5))
 
-#dat <- data.frame(rbind(df_ptb %>% select(-n), m_add1, m_add2, m_add3, m_add4, m_add5))
+dat <- data.frame(rbind(df_ptb %>% dplyr::select(-n), m_add1, m_add2, m_add3, m_add4, m_add5))
 dat <- dat %>% arrange(State, month)
 
 
@@ -104,8 +103,7 @@ dat <- dat %>% group_by(FIPS) %>% mutate(month_ind = 1:num_months)
 # 21 sates expanded Medicaid -- for those that expanded, draw expansion date uniformly in post-period  
 
 # create treatment indicator by month by randomly sampling post-exposure month 
-#dat <- dat %>% group_by(FIPS) %>%  mutate(first_A = ifelse(Expanded_Medicaid==1, sample(37:num_months, size=1), NA)) 
-dat <- dat %>% group_by(FIPS) %>%  mutate(first_A = ifelse(Expanded_Medicaid==1, sample(c(37,52,65,72), size=1), NA)) 
+dat <- dat %>% group_by(FIPS) %>%  mutate(first_A = ifelse(Expanded_Medicaid==1, sample(c(37,45,53,61), size=1), NA)) 
 
 dat <- dat %>% mutate(A = as.numeric(month_ind>=first_A)) 
 dat$A[is.na(dat$A)] <- 0
@@ -116,17 +114,26 @@ dat$A[is.na(dat$A)] <- 0
 ##############################################################################################################################
 
 
+# iteration = number of iterations of the simulation
+# dat = data frame being used for the simulation
+# CTE = continuous treatment effect, which we set to -0.02
+# HTE = vector of heterogeneous treatment effects, which we set to -0.02 and -0.01
+# DTE = vector of dynamic effects, which we set to -0.01, -0.015, and -0.02
+
 sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print(iteration)
-# create state-level intercept and noise for each state-month 
-dat <- dat %>% group_by(state_name) %>% mutate(intercept = mean(ptb_prop, na.rm=T),
-                                               e_Y = rnorm(n=num_months, mean=0, sd=sqrt(var(ptb_prop, na.rm=T))), 
-                                               A_time = min(month_ind[which(A==1)]))
-
+  print("-----BEGINNING OF THE ITERATION-----")
+  # create state-level intercept and noise for each state-month 
+  dat <- dat %>% group_by(state_name) %>% mutate(intercept = mean(ptb_prop, na.rm=T), 
+                                                 e_Y = rnorm(n = num_months, mean = 0, sd = sqrt(var(ptb_prop, na.rm=T))), 
+                                                 A_time = min(month_ind[which(A==1)]), 
+                                                 A_month = min(month[which(A==1)])) 
+  
 dat$A_time[is.infinite(dat$A_time)] <- 0 
 
 # identify those who ever get the intervention 
 dat <- dat %>% group_by(State) %>% mutate(ever_A = max(A))
+
 # classify the time since the intervention for those who got it 
 dat <- dat %>% mutate(time_since_A = ifelse(ever_A==0, NA, month_ind-A_time))
                           
@@ -137,6 +144,7 @@ dat <- dat %>% mutate(time_since_A = ifelse(ever_A==0, NA, month_ind-A_time))
 dat <- dat %>%  mutate(Y = intercept + A*CTE + e_Y)
                       
 # estimate effects using TWFE 
+print("TWFE")
 m1 <- glm(Y ~ A + factor(State) + factor(month_ind), data=dat, family="gaussian")
 # get variance from sandwich estimator -- type = "HC0"
 #m1_var<- sandwich(m1)
@@ -146,10 +154,18 @@ m1_var <- vcovHC(m1, type="HC3")
 #sqrt(test["A","A"])
 
 # estimate effects using group-time ATT
+print("gt ATT")
+
 m2 <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat, anticipation=0)
 m2_ag <- aggte(m2, type="simple")
 #m2_ag$overall.att
 
+print("sun abraham")
+# estimate effects using Sun and Abraham approach 
+dat <- dat %>% mutate(A_time_sa = ifelse(A_time!=0, A_time, Inf))
+m3 <- staggered_sa(df = dat, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "simple")
+
+print("TWFE ever-treated")
 # TWFE if you only include those who eventually get the intervention 
 dat_i <- dat %>% filter(ever_A==1)
 
@@ -158,7 +174,7 @@ m1_i <- glm(Y ~ A + factor(State) + factor(month_ind), data=dat_i, family="gauss
 #m1_var_i <- sandwich(m1_i)
 m1_var_i <- vcovHC(m1_i, type="HC3")
 
-
+print("gt ATT not yet treated")
 # estimate effects using group-time ATT for only those who are not yet treated
 m2_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_i, anticipation=0, control_group = "notyettreated")
 m2_ea_ag <- aggte(m2_ea, type="simple")
@@ -167,28 +183,40 @@ m2_ea_ag <- aggte(m2_ea, type="simple")
 # define truth 
 cte_truth <- CTE
 
+print("combine results")
 # combine results
-df_cte <- data.frame(rbind(cbind(estimator = "truth", result = cte_truth, lb = NA, ub = NA), 
+df_cte <- data.frame(rbind(cbind(estimator = "truth", result = cte_truth, lb = NA, ub = NA, power=NA), 
                            cbind(estimator = "TWFE", result = summary(m1)$coefficients["A", "Estimate"], 
                                  lb = summary(m1)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_var["A","A"]), 
-                                 ub = summary(m1)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"])), 
-                           cbind(estimator = "group.time.ATT", result = m2_ag$overall.att, 
+                                 ub = summary(m1)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"]), 
+                                 power = as.numeric(summary(m1)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"])<0)), 
+                            cbind(estimator = "group.time.ATT", result = m2_ag$overall.att, 
                                  lb = m2_ag$overall.att - 1.96*m2_ag$overall.se, 
-                                 ub = m2_ag$overall.att + 1.96*m2_ag$overall.se), 
+                                 ub = m2_ag$overall.att + 1.96*m2_ag$overall.se, 
+                                 power = as.numeric(m2_ag$overall.att + 1.96*m2_ag$overall.se<0)), 
+                           cbind(estimator = "staggered.SA", result = m3$estimate, 
+                                 lb = m3$estimate - 1.96*m3$se_neyman, 
+                                 ub = m3$estimate + 1.96*m3$se_neyman, 
+                                 power = as.numeric(m3$estimate + 1.96*m3$se_neyman<0)), 
                            cbind(estimator = "TWFE.ever.adopted", result = summary(m1_i)$coefficients["A", "Estimate"], 
                                  lb = summary(m1_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_var["A","A"]), 
-                                 ub = summary(m1_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"])), 
+                                 ub = summary(m1_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"]), 
+                                 power = as.numeric(summary(m1_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"])<0)), 
                            cbind(estimator = "group.time.ATT.ever.adopted", result = m2_ea_ag$overall.att, 
                                  lb = m2_ea_ag$overall.att - 1.96*m2_ea_ag$overall.se, 
-                                 ub = m2_ea_ag$overall.att + 1.96*m2_ea_ag$overall.se)))
+                                 ub = m2_ea_ag$overall.att + 1.96*m2_ea_ag$overall.se, 
+                                 power = as.numeric(m2_ea_ag$overall.att + 1.96*m2_ea_ag$overall.se<0))))
 
 df_cte$result <- as.numeric(df_cte$result)
 df_cte$lb <- as.numeric(df_cte$lb)
 df_cte$ub <- as.numeric(df_cte$ub)
+df_cte$power <- as.numeric(df_cte$power)
+
 df_cte$type <- "CTE"
 
 # make wide so results can be stacked
-df_cte_wide <- df_cte %>% pivot_wider(names_from=c(type,estimator), values_from=c(result, lb, ub))
+df_cte_wide <- df_cte %>% pivot_wider(names_from=c(type,estimator), values_from=c(result, lb, ub, power))
+
 
 
 ##############################################################################################################################
@@ -196,20 +224,25 @@ df_cte_wide <- df_cte %>% pivot_wider(names_from=c(type,estimator), values_from=
 ##############################################################################################################################
 
 # define the heterogeneous treatment effect and generate the outcome 
-dat_hte <- dat %>% mutate(HTE = ifelse(A_time<65 & ever_A==1, HTE[1], ifelse(A_time>=65 & ever_A==1, HTE[2], 0))) %>%  mutate(Y = intercept + A*HTE  + e_Y)
+dat_hte <- dat %>% mutate(HTE = ifelse(A_time<40 & ever_A==1, HTE[1], ifelse(A_time>=40 & ever_A==1, HTE[2], 0))) %>%  mutate(Y = intercept + A*HTE  + e_Y)
 
+print("hetergeneous: TWFE")
 # estimate effects using TWFE 
 m1_hte <- glm(Y ~ A  + factor(State) + factor(month_ind), data=dat_hte, family="gaussian")
 #m1_hte_var <- sandwich(m1_hte)
 m1_hte_var <- vcovHC(m1_hte, type="HC3")
 
-
+print("hetergeneous: gtATT")
 # estimate effects using group-time ATT
 m2_hte <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_hte, anticipation=0)
 m2_hte_ag <- aggte(m2_hte, type="group")
 
 #ggdid(m2_hte_ag)
+print("hetergeneous: SA")
+# estimate effects using Sun and Abraham approach 
+m3_hte <- staggered_sa(df = dat_hte, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "simple")
 
+print("hetergeneous: TWFE ever treated")
 # TWFE if you only include those who eventually get the intervention 
 dat_hte_i <- dat_hte %>% filter(ever_A==1)
 
@@ -218,51 +251,63 @@ m1_hte_i <- glm(Y ~ A  +  factor(State) + factor(month_ind), data=dat_hte_i, fam
 #m1_hte_var_i <- sandwich(m1_hte_i)
 m1_hte_var_i <- vcovHC(m1_hte_i, type="HC3")
 
-
+print("hetergeneous: gtATT among those who eventually get intervention") 
 # estimate effects using group-time ATT among those who eventually get the intervention 
 m2_hte_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_hte_i, anticipation=0, control_group = "notyettreated")
 m2_hte_ea_ag <- aggte(m2_hte_ea, type="group")
 
 
 # calculate the truth for the HTE parameter
-hte_truth <- (HTE[1]*length(dat_hte$HTE[dat_hte$A_time<65 & dat_hte$A_time==dat_hte$month_ind]) + HTE[2]*length(dat_hte$HTE[dat_hte$A_time>=65 & dat_hte$A_time==dat_hte$month_ind]))/length(unique(dat_hte$State[dat_hte$ever_A==1]))
+hte_truth <- (HTE[1]*length(dat_hte$HTE[dat_hte$A_time<40 & dat_hte$A_time==dat_hte$month_ind]) + HTE[2]*length(dat_hte$HTE[dat_hte$A_time>=40 & dat_hte$A_time==dat_hte$month_ind]))/length(unique(dat_hte$State[dat_hte$ever_A==1]))
 
-#### figure out how to incorporate different truth for ever-adopted 
-hte_truth_ea <- (HTE[1]*length(dat_hte_i$HTE[dat_hte_i$A_time<65 & dat_hte_i$A_time==dat_hte_i$month_ind]) + HTE[2]*length(dat_hte_i$HTE[dat_hte_i$A_time>=65 & dat_hte_i$A_time<72 & dat_hte_i$A_time==dat_hte_i$month_ind]))/length(unique(dat_hte_i$State[dat_hte_i$ever_A==1 & dat_hte_i$A_time<72]))
+# calculate different truth for ever-adopted 
+hte_truth_ea <- (HTE[1]*length(dat_hte_i$HTE[dat_hte_i$A_time<40 & dat_hte_i$A_time==dat_hte_i$month_ind]) + HTE[2]*length(dat_hte_i$HTE[dat_hte_i$A_time>=40 & dat_hte_i$A_time<max(m2_hte$group) & dat_hte_i$A_time==dat_hte_i$month_ind]))/length(unique(dat_hte_i$State[dat_hte_i$ever_A==1 & dat_hte_i$A_time<max(m2_hte$group)]))
 
 
+print("combine heterogeneous")
 # combine results
-df_hte <- data.frame(rbind(cbind(estimator="truth", result=hte_truth, lb = NA, ub = NA), 
+df_hte <- data.frame(rbind(cbind(estimator="truth", result=hte_truth, lb = NA, ub = NA, power=NA), 
                            cbind(estimator = "TWFE", result = summary(m1_hte)$coefficients["A", "Estimate"], 
                                  lb = summary(m1_hte)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_hte_var["A","A"]), 
-                                 ub = summary(m1_hte)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var["A","A"])), 
+                                 ub = summary(m1_hte)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var["A","A"]), 
+                                 power = as.numeric(summary(m1_hte)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var["A","A"])<0)), 
                            cbind(estimator = "group.time.ATT", result = m2_hte_ag$overall.att, 
                                  lb = m2_hte_ag$overall.att - 1.96*m2_hte_ag$overall.se, 
-                                 ub = m2_hte_ag$overall.att + 1.96*m2_hte_ag$overall.se)))
+                                 ub = m2_hte_ag$overall.att + 1.96*m2_hte_ag$overall.se, 
+                                 power = as.numeric(m2_hte_ag$overall.att + 1.96*m2_hte_ag$overall.se<0)), 
+                           cbind(estimator = "staggered.SA", result = m3_hte$estimate, 
+                                 lb = m3_hte$estimate - 1.96*m3_hte$se_neyman, 
+                                 ub = m3_hte$estimate + 1.96*m3_hte$se_neyman, 
+                                 power = as.numeric(m3_hte$estimate + 1.96*m3_hte$se_neyman<0))))
 
- 
-df_hte_ea <-  data.frame(rbind(cbind(estimator="truth", result=hte_truth_ea, lb=NA, ub=NA), 
+
+df_hte_ea <-  data.frame(rbind(cbind(estimator="truth", result=hte_truth_ea, lb=NA, ub=NA, power=NA), 
                                cbind(estimator = "TWFE.ever.adopted", result = summary(m1_hte_i)$coefficients["A", "Estimate"], 
-                                 lb = summary(m1_hte_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_hte_var_i["A","A"]), 
-                                 ub = summary(m1_hte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var_i["A","A"])), 
-                           cbind(estimator = "group.time.ATT.ever.adopted", result = m2_hte_ea_ag$overall.att, 
-                                 lb = m2_hte_ea_ag$overall.att - 1.96*m2_hte_ea_ag$overall.se, 
-                                 ub = m2_hte_ea_ag$overall.att + 1.96*m2_hte_ea_ag$overall.se)))
+                                     lb = summary(m1_hte_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_hte_var_i["A","A"]), 
+                                     ub = summary(m1_hte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var_i["A","A"]), 
+                                     power = as.numeric(summary(m1_hte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var_i["A","A"])<0)), 
+                              cbind(estimator = "group.time.ATT.ever.adopted", result = m2_hte_ea_ag$overall.att, 
+                                     lb = m2_hte_ea_ag$overall.att - 1.96*m2_hte_ea_ag$overall.se, 
+                                     ub = m2_hte_ea_ag$overall.att + 1.96*m2_hte_ea_ag$overall.se, 
+                                     power = as.numeric(m2_hte_ea_ag$overall.att + 1.96*m2_hte_ea_ag$overall.se<0))))
 
 
 df_hte$result <- as.numeric(df_hte$result)
 df_hte$lb <- as.numeric(df_hte$lb)
 df_hte$ub <- as.numeric(df_hte$ub)
+df_hte$power <- as.numeric(df_hte$power)
 df_hte$type <- "HTE"
 
 df_hte_ea$result <- as.numeric(df_hte_ea$result)
 df_hte_ea$lb <- as.numeric(df_hte_ea$lb)
 df_hte_ea$ub <- as.numeric(df_hte_ea$ub)
+df_hte_ea$power <- as.numeric(df_hte_ea$power)
+
 df_hte_ea$type <- "HTE.EA"
 
 # make wide so results can be stacked
-df_hte_wide <- df_hte %>% pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub))
-df_hte_ea_wide <- df_hte_ea %>% pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub))
+df_hte_wide <- df_hte %>% pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub, power))
+df_hte_ea_wide <- df_hte_ea %>% pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub, power))
 
 ##############################################################################################################################
 # DYNAMIC TREATMENT EFFECT 
@@ -275,23 +320,24 @@ dat_dte <- dat %>% mutate(DTE = ifelse(time_since_A>=0 & time_since_A<12 & ever_
 
 
 
+
 ##############################################################################################################################
 # AVERAGE EFFECT IN THE POST-PERIOD  
 ##############################################################################################################################
-
+print("dynamic: TWFE")
 # estimate effects using TWFE 
 m1_dte <- glm(Y ~ A  + factor(State) + factor(month_ind), data=dat_dte, family="gaussian")
 # get variance from sandwich estimator
 m1_dte_var <- vcovHC(m1_dte, type="HC3")
 
-
+print("dynamic: gtATT")
 # estimate effects using group-time ATT 
 m2_dte <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte, anticipation=0)
 m2_dte_ag <- aggte(m2_dte, type="simple")
 #summary(m2_dte_ag) 
 #ggdid(m2_dte_ag)
 
-
+print("dynamic: TWFE eventually treated")
 # TWFE if you only include those who eventually get the intervention 
 dat_dte_i <- dat_dte %>% filter(ever_A==1)
 m1_dte_i <- glm(Y ~ A  +  factor(State) + factor(month_ind), data=dat_dte_i, family="gaussian")
@@ -299,7 +345,7 @@ m1_dte_i <- glm(Y ~ A  +  factor(State) + factor(month_ind), data=dat_dte_i, fam
 #m1_dte_var_i <- sandwich(m1_dte_i)
 m1_dte_var_i <- vcovHC(m1_dte_i, type="HC3")
 
-
+print("dynamic gtATT eventually treated")
 # estimate effects using group-time ATT among those who eventually get the intervention 
 m2_dte_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte_i, anticipation=0, control_group = "notyettreated")
 m2_dte_ea_ag <- aggte(m2_dte_ea, type="simple")
@@ -310,65 +356,65 @@ dat_dte$num_post_months <- ifelse(dat_dte$time_since_A==dat_dte$num_post_months,
 # I think this is wrong because it excludes time t=0, which is an intervention period 
 
 # calculate the truth for the average effect in the post-period 
-dte_truth_avg <- (DTE[1]*sum(dat_dte$time_since_A>=0 & dat_dte$time_since_A<12 & dat_dte$ever_A==1, na.rm=T) + 
-                    DTE[2]*sum(dat_dte$time_since_A>=12 & dat_dte$time_since_A<24  & dat_dte$ever_A==1, na.rm=T) +
-                    DTE[3]*sum(dat_dte$time_since_A>=24  & dat_dte$ever_A==1, na.rm=T))/sum(dat_dte$time_since_A>=0, na.rm=T)
-  
-  #sum(dat_dte$num_post_months,na.rm=T)
+dte_truth_avg <- (DTE[1]*sum(dat_dte$time_since_A>=0 & dat_dte$time_since_A<12, na.rm=T) + 
+                    DTE[2]*sum(dat_dte$time_since_A>=12 & dat_dte$time_since_A<24, na.rm=T) +
+                    DTE[3]*sum(dat_dte$time_since_A>=24, na.rm=T))/sum(dat_dte$time_since_A>=0,na.rm=T)
 
 
-# calculate number of state-months of treatment for denominator, state-months of each treatment size in numerator
-# but for ever adopted group, need to exclude last treated group 
-dat_dte_i <- dat_dte_i %>% group_by(State) %>% mutate(num_post_months = max(time_since_A))
-dat_dte_i$num_post_months_ea <- ifelse(dat_dte_i$time_since_A==dat_dte_i$num_post_months & dat_dte_i$A_time<72, dat_dte_i$num_post_months, NA)
-
-# calculate the truth for the average effect in the post-period 
+# calculate truth for average effect in the post-period for ever adopted group -- need to exclude last treated group 
 dte_truth_avg_ea <- (DTE[1]*sum(dat_dte_i$time_since_A>=0 & dat_dte_i$time_since_A<12 & dat_dte_i$ever_A==1 & dat_dte_i$A_time<72, na.rm=T) + 
-                    DTE[2]*sum(dat_dte_i$time_since_A>=12 & dat_dte_i$time_since_A<24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<72, na.rm=T) +
-                    DTE[3]*sum(dat_dte_i$time_since_A>=24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<72, na.rm=T))/sum(dat_dte_i$time_since_A>=0, na.rm=T)
-  
-  #sum(dat_dte_i$num_post_months_ea,na.rm=T)
+                       DTE[2]*sum(dat_dte_i$time_since_A>=12 & dat_dte_i$time_since_A<24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<72, na.rm=T) +
+                       DTE[3]*sum(dat_dte_i$time_since_A>=24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte$group), na.rm=T))/sum(dat_dte_i$time_since_A>=0 & dat_dte_i$A_time<max(m2_dte$group), na.rm=T)
 
 
 
+print("dynamic combine")
 # combine results 
-df_dte_avg <- data.frame(rbind(cbind(estimator="truth", result=dte_truth_avg, lb = NA, ub = NA), 
+df_dte_avg <- data.frame(rbind(cbind(estimator="truth", result=dte_truth_avg, lb = NA, ub = NA, power=NA), 
                                cbind(estimator = "TWFE", result = summary(m1_dte)$coefficients["A", "Estimate"], 
                                      lb = summary(m1_dte)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_dte_var["A","A"]), 
-                                     ub = summary(m1_dte)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var["A","A"])), 
-                               cbind(estimator = "group.time.ATT", result = m2_dte_ag$overall.att, 
+                                     ub = summary(m1_dte)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var["A","A"]), 
+                                     power = as.numeric(summary(m1_dte)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var["A","A"])<0)), 
+                                 cbind(estimator = "group.time.ATT", result = m2_dte_ag$overall.att, 
                                      lb = m2_dte_ag$overall.att - 1.96*m2_dte_ag$overall.se, 
-                                     ub = m2_dte_ag$overall.att + 1.96*m2_dte_ag$overall.se))) 
+                                     ub = m2_dte_ag$overall.att + 1.96*m2_dte_ag$overall.se, 
+                                     power = as.numeric(m2_dte_ag$overall.att + 1.96*m2_dte_ag$overall.se<0)))) 
 
-df_dte_avg_ea <- data.frame(rbind(cbind(estimator="truth", result=dte_truth_avg_ea, lb = NA, ub = NA), 
-                               cbind(estimator = "TWFE.ever.adopted", result = summary(m1_dte_i)$coefficients["A", "Estimate"], 
-                                     lb = summary(m1_dte_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_dte_var_i["A","A"]), 
-                                     ub = summary(m1_dte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var_i["A","A"])), 
-                               cbind(estimator = "group.time.ATT.ever.adopted", result = m2_dte_ea_ag$overall.att, 
-                                     lb = m2_dte_ea_ag$overall.att - 1.96*m2_dte_ea_ag$overall.se, 
-                                     ub = m2_dte_ea_ag$overall.att + 1.96*m2_dte_ea_ag$overall.se)))
+df_dte_avg_ea <- data.frame(rbind(cbind(estimator="truth", result=dte_truth_avg_ea, lb = NA, ub = NA, power=NA), 
+                                  cbind(estimator = "TWFE.ever.adopted", result = summary(m1_dte_i)$coefficients["A", "Estimate"], 
+                                        lb = summary(m1_dte_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_dte_var_i["A","A"]), 
+                                        ub = summary(m1_dte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var_i["A","A"]), 
+                                        power = as.numeric(summary(m1_dte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var_i["A","A"])<0)), 
+                                cbind(estimator = "group.time.ATT.ever.adopted", result = m2_dte_ea_ag$overall.att, 
+                                        lb = m2_dte_ea_ag$overall.att - 1.96*m2_dte_ea_ag$overall.se, 
+                                        ub = m2_dte_ea_ag$overall.att + 1.96*m2_dte_ea_ag$overall.se, 
+                                        power = as.numeric(m2_dte_ea_ag$overall.att + 1.96*m2_dte_ea_ag$overall.se<0))))
 
 
 df_dte_avg$result <- as.numeric(df_dte_avg$result)
 df_dte_avg$lb <- as.numeric(df_dte_avg$lb)
 df_dte_avg$ub <- as.numeric(df_dte_avg$ub)
+df_dte_avg$power <- as.numeric(df_dte_avg$power)
 
 df_dte_avg$type <- "DTE.avg"
 
 df_dte_avg_ea$result <- as.numeric(df_dte_avg_ea$result)
 df_dte_avg_ea$lb <- as.numeric(df_dte_avg_ea$lb)
 df_dte_avg_ea$ub <- as.numeric(df_dte_avg_ea$ub)
+df_dte_avg_ea$power <- as.numeric(df_dte_avg_ea$power)
 
 df_dte_avg_ea$type <- "DTE.avg.EA"
 
 # make wide so results can be stacked 
-df_dte_avg_wide <- df_dte_avg %>% pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub))
-df_dte_avg_ea_wide <- df_dte_avg_ea %>% pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub))
+df_dte_avg_wide <- df_dte_avg %>% pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub, power))
+df_dte_avg_ea_wide <- df_dte_avg_ea %>% pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub, power))
+
 
 ##############################################################################################################################
 # YEARLY EFFECT IN THE POST-PERIOD  
 ##############################################################################################################################
 
+print("yearly effect in post period glm")
 # estimate effects using TWFE  
 m1_dte_yr <- glm(Y ~ factor(time_since_A)  + factor(State) + factor(month_ind), data=dat_dte, family="gaussian")
 # I think because of small sample size, the sandwich estimator for variance with small sample size correction returns 
@@ -380,13 +426,25 @@ m1_dte_yr <- glm(Y ~ factor(time_since_A)  + factor(State) + factor(month_ind), 
 #sqrt(m1_dte_yr_var["factor(time_since_A)0","factor(time_since_A)0"])
 #sqrt(test["factor(time_since_A)0","factor(time_since_A)0"])
 
+print("yearly effect in post period gtatt")
 # estimate effects using group-time ATT  
 m2_dte_yr <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte, anticipation=0, cband=TRUE)
 m2_dte_yr_ag <- aggte(m2_dte_yr, type="dynamic", cband=TRUE)
 #summary(m2_hte_ag) 
 
+print("yearly effect in post period Ben Micheal")
+# estimate effects using stacked regression from Ben Michael paper 
+dat_dte <- dat_dte %>% ungroup()
+dat_dte$month <- as.Date(dat_dte$month)
+dat_dte$A_month <- as.Date(dat_dte$A_month)
+
+print("jackknife")
+m3_dte <- fit_event_jack(outcome = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat_dte, max_time_to = 10000) %>% 
+  filter(cohort=="average")
+
 #ggdid(m2_dte_yr_ag)
 
+print("yearly effect TWFE ever treated")
 # estimate TWFE model only among those who ever get the intervention 
 dat_dte_i <- dat_dte_i %>% filter(ever_A==1)
 m1_dte_yr_i <- glm(Y ~ factor(time_since_A)  +  factor(State) + factor(month_ind), data=dat_dte_i, family="gaussian")
@@ -397,6 +455,7 @@ m1_dte_yr_i <- glm(Y ~ factor(time_since_A)  +  factor(State) + factor(month_ind
 #sqrt(m1_dte_yr_var_i["factor(time_since_A)0","factor(time_since_A)0"])
 #sqrt(test["factor(time_since_A)0","factor(time_since_A)0"])
 
+print("yearly effect gtatt ever treated")
 # estimate effects using group-time ATT among those who ever get the intervention 
 m2_dte_yr_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte_i, anticipation=0, cband=TRUE, control_group = "notyettreated")
 m2_dte_yr_ea_ag <- aggte(m2_dte_yr_ea, type="dynamic", cband=TRUE)
@@ -404,11 +463,11 @@ m2_dte_yr_ea_ag <- aggte(m2_dte_yr_ea, type="dynamic", cband=TRUE)
 
 # dynamic results 
 # define the truth 
-dte_truth <- data.frame(estimator="truth", time= (min(dat_dte$time_since_A, na.rm=T)+1):max(dat_dte$time_since_A, na.rm=T), 
-                        result=c(rep(0,-1*min(dat_dte$time_since_A, na.rm=T) - 1), 
+dte_truth <- data.frame(estimator="truth", time= (min(dat_dte$time_since_A, na.rm=T)):max(dat_dte$time_since_A, na.rm=T), 
+                        result=c(rep(0,-1*min(dat_dte$time_since_A, na.rm=T)), 
                                  rep(DTE[1], 12), 
                                  rep(DTE[2], 12), 
-                                 rep(DTE[3], max(dat_dte$time_since_A, na.rm=T) - 23)), lb=NA, ub=NA)
+                                 rep(DTE[3], max(dat_dte$time_since_A, na.rm=T) - 23)), lb=NA, ub=NA, power=NA)
 
 # twfe -- save estimates from model and get standard errors from sandwich variance matrix 
 # note: sandwich variance matrix is giving smaller estimates of variance than we're getting from the model 
@@ -416,10 +475,10 @@ dte_truth <- data.frame(estimator="truth", time= (min(dat_dte$time_since_A, na.r
 twfe <- data.frame(cbind(result = summary(m1_dte_yr)$coefficients))
 
 # keep only coefficients that define effects of interest
-twfe <- twfe %>% filter(grepl("time_since_A", rownames(twfe))) %>% rename(result = Estimate, SE = Std..Error) %>% select(result, SE)
+twfe <- twfe %>% filter(grepl("time_since_A", rownames(twfe))) %>% rename(result = Estimate, SE = Std..Error) %>% dplyr::select(result, SE)
 
 # calculate upper and lower 95% confidence interval bounds
-twfe <- twfe %>% mutate(lb = result - 1.96*SE, ub = result + 1.96*SE, estimator="TWFE", time=(min(dat_dte$time_since_A, na.rm=T)+1):max(dat_dte$time_since_A, na.rm=T)) %>% dplyr::select(estimator, time, result, lb, ub)
+twfe <- twfe %>% mutate(lb = result - 1.96*SE, ub = result + 1.96*SE, power = as.numeric(result + 1.96*SE <0), estimator="TWFE", time=(min(dat_dte$time_since_A, na.rm=T)+1):max(dat_dte$time_since_A, na.rm=T)) %>% dplyr::select(estimator, time, result, lb, ub, power)
 
 
 # group-time ATT 
@@ -430,16 +489,27 @@ gt$estimator <-  "group.time.ATT"
 gt$lb <- gt$result - gt$c*gt$SE
 gt$ub <- gt$result + gt$c*gt$SE
 gt$SE <- gt$c <- NULL 
+gt$power <- as.numeric(gt$ub<0)
+
+
+# stacked regression 
+stacked <- data.frame(cbind(result = m3_dte$estimate, SE = m3_dte$se, time = m3_dte$event_time))
+stacked$lb <- stacked$result - 1.96*stacked$SE 
+stacked$ub <- stacked$result + 1.96*stacked$SE
+stacked$SE <- NULL
+stacked$power <- as.numeric(stacked$ub<0)
+stacked$estimator <- "stacked.regression"
+
 
 # TWFE for ever adopted 
 
 twfe_ea <- data.frame(cbind(result = summary(m1_dte_yr_i)$coefficients))
 
 # keep only coefficients that define effects of interest
-twfe_ea <- twfe_ea %>% filter(grepl("time_since_A", rownames(twfe_ea))) %>% rename(result = Estimate, SE = Std..Error) %>% select(result, SE)
+twfe_ea <- twfe_ea %>% filter(grepl("time_since_A", rownames(twfe_ea))) %>% rename(result = Estimate, SE = Std..Error) %>% dplyr::select(result, SE)
 
 # calculate upper and lower 95% confidence interval bounds
-twfe_ea <- twfe_ea %>% mutate(lb = result - 1.96*SE, ub = result + 1.96*SE, estimator="TWFE.ever.adopted", time=(min(dat_dte$time_since_A, na.rm=T)+1):max(dat_dte$time_since_A, na.rm=T)) %>% dplyr::select(estimator, time, result, lb, ub)
+twfe_ea <- twfe_ea %>% mutate(lb = result - 1.96*SE, ub = result + 1.96*SE, power = as.numeric(result + 1.96*SE <0), estimator="TWFE.ever.adopted", time=(min(dat_dte$time_since_A, na.rm=T)+1):max(dat_dte$time_since_A, na.rm=T)) %>% dplyr::select(estimator, time, result, lb, ub, power)
 
 
 # group-time ATT for ever adopted
@@ -450,21 +520,23 @@ gt_ea$estimator <-  "group.time.ATT.ever.adopted"
 gt_ea$lb <- gt_ea$result - gt_ea$c*gt_ea$SE
 gt_ea$ub <- gt_ea$result + gt_ea$c*gt_ea$SE
 gt_ea$SE <- gt_ea$c <- NULL 
+gt_ea$power <- as.numeric(gt_ea$ub <0)
 
 # combine all dynamic results
-df_dyn <- data.frame(rbind(dte_truth, twfe, gt, twfe_ea, gt_ea))
+df_dyn <- data.frame(rbind(dte_truth, twfe, gt, stacked, twfe_ea, gt_ea))
 df_dyn$type <- paste0("DTE.",df_dyn$time)
 
 # make wide so results can be stacked 
-df_dyn_wide <- df_dyn %>% select(-time) %>%  pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub))
+df_dyn_wide <- df_dyn %>% dplyr::select(-time) %>%  pivot_wider(names_from=c(type, estimator), values_from=c(result, lb, ub, power))
 
 # output overall results
 overall_result <- data.frame(cbind(df_cte_wide, df_hte_wide, df_hte_ea_wide, df_dte_avg_wide, df_dte_avg_ea_wide, df_dyn_wide))
 return(overall_result)
+print("-----END OF THE ITERATION-----")
 }
 
 
-results_ls <- lapply(1:1000, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02)))
+results_ls <- lapply(1:10, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02)))
 
 results_df <- data.frame(do.call(rbind, results_ls))
 
