@@ -108,6 +108,71 @@ dat <- dat %>% group_by(FIPS) %>%  mutate(first_A = ifelse(Expanded_Medicaid==1,
 dat <- dat %>% mutate(A = as.numeric(month_ind>=first_A)) 
 dat$A[is.na(dat$A)] <- 0
 
+# simulate future ptb rates for another 72 months 
+
+
+add_ptb_yrs <- function(state) {
+  f1 <- auto.arima(y = dat %>% ungroup() %>% filter(State==state) %>% arrange(month_ind) %>% select(ptb_prop2), 
+                   lambda = "auto")
+  
+  coef <- coef(f1)
+  try(rm(ar))
+  if (is.na(coef["ar1"])) ar <- NULL 
+  if (!is.na(coef["ar1"])) ar <- coef["ar1"] 
+  if (!is.na(coef["ar2"])) ar <- c(ar,coef["ar2"]) 
+  if (!is.na(coef["ar3"])) ar <- c(ar,coef["ar3"]) 
+  if (!is.na(coef["ar4"])) ar <- c(ar,coef["ar4"]) 
+  if (!is.na(coef["ar5"])) ar <- c(ar,coef["ar5"]) 
+  
+  try(rm(ma)) 
+  if (is.na(coef["ma1"])) ma <- NULL 
+  if (!is.na(coef["ma1"])) ma <- coef["ma1"] 
+  if (!is.na(coef["ma2"])) ma <- c(ma,coef["ma2"]) 
+  if (!is.na(coef["ma3"])) ma <- c(ma,coef["ma3"]) 
+  if (!is.na(coef["ma4"])) ma <- c(ma,coef["ma4"]) 
+  if (!is.na(coef["ma5"])) ma <- c(ma,coef["ma5"]) 
+  
+  
+  diff <- f1$arma[length(f1$arma)-1] 
+  ar_order <- ifelse(is.null(ar), 0, length(ar))
+  ma_order <- ifelse(is.null(ma), 0, length(ma))
+  intercept <- ifelse(is.na(coef["intercept"]), 0,  coef["intercept"])
+  
+  # simulate from model, using the SD of the original series to make sure it's on the correct scale 
+  f2 <- arima.sim(n=72, model=list(order=c(ar_order, diff, ma_order), ar=ar, ma=ma), sd=sqrt(var(dat$ptb_prop2[dat$State==state], na.rm=T)))
+  
+  # add mean back to create ptb rates for 72 more months 
+  if(diff==1) {
+    df_t <- dat %>% filter(State==state)  %>% mutate(ptb_prop2 = as.numeric(f2[-1] + mean(dat$ptb_prop2[dat$State==state], na.rm=T)), 
+                                                     year = c(rep(2017,12), rep(2018, 12), rep(2019, 12),rep(2020, 12), rep(2021, 12), rep(2022,12)), 
+                                                     month_ind = 73:144, A = max(A),
+                                                     month = seq(as.POSIXct("2017-01-01", format="%Y-%m-%d"), by = "month", length.out = num_months)) %>% 
+      mutate(ptb_prop = ptb_prop2/100)
+  }
+  if(diff==0) {
+    df_t <- dat %>% filter(State==state)  %>% mutate(ptb_prop2 = as.numeric(f2 + mean(dat$ptb_prop2[dat$State==state], na.rm=T)), 
+                                                     year = c(rep(2017,12), rep(2018, 12), rep(2019, 12),rep(2020, 12), rep(2021, 12), rep(2022,12)), 
+                                                     month_ind = 73:144, A=max(A),
+                                                     month = seq(as.POSIXct("2017-01-01", format="%Y-%m-%d"), by = "month", length.out = num_months)) %>% 
+      
+      mutate(ptb_prop = ptb_prop2/100)
+  }
+  
+  #ggplot(dat %>% filter(State==state)) + geom_line(aes(x=month_ind, y=ptb_prop2)) +
+  #  geom_line(aes(x=month_ind, y=f1$fitted), col="blue") + geom_line(data=df_t, aes(x=month_ind, y=ptb_prop2))
+  
+  return(df_t)
+}
+
+states <- unique(dat$State)
+ls_ptb_add <- lapply(1:length(states), function(x) add_ptb_yrs(states[x]))
+df_ptb_add <- do.call(rbind, ls_ptb_add)
+
+dat <- data.frame(rbind(dat, df_ptb_add)) %>% arrange(State, month)
+
+# update number of months to reflect additional follow up time
+num_months <- 144
+
 
 ##############################################################################################################################
 # SIMULATION 
@@ -259,6 +324,7 @@ m2_hte_ea_ag <- aggte(m2_hte_ea, type="group")
 
 # calculate the truth for the HTE parameter
 hte_truth <- (HTE[1]*length(dat_hte$HTE[dat_hte$A_time<40 & dat_hte$A_time==dat_hte$month_ind]) + HTE[2]*length(dat_hte$HTE[dat_hte$A_time>=40 & dat_hte$A_time==dat_hte$month_ind]))/length(unique(dat_hte$State[dat_hte$ever_A==1]))
+
 
 # calculate different truth for ever-adopted 
 hte_truth_ea <- (HTE[1]*length(dat_hte_i$HTE[dat_hte_i$A_time<40 & dat_hte_i$A_time==dat_hte_i$month_ind]) + HTE[2]*length(dat_hte_i$HTE[dat_hte_i$A_time>=40 & dat_hte_i$A_time<max(m2_hte$group) & dat_hte_i$A_time==dat_hte_i$month_ind]))/length(unique(dat_hte_i$State[dat_hte_i$ever_A==1 & dat_hte_i$A_time<max(m2_hte$group)]))
@@ -540,26 +606,31 @@ results_ls <- lapply(1:10, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(
 
 results_df <- data.frame(do.call(rbind, results_ls))
 
-write.csv(results_df, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_results_PTB_uniform.csv", row.names = F)
-
-
 results_df_calc <- results_df %>% pivot_longer(cols= everything(), names_to=c("estimand", "parameter", "method"), names_sep="_")
 results_df_calc <- results_df_calc %>% group_by(estimand, parameter, method) %>% mutate(iteration = row_number())
 
-results_df_calc <- results_df_calc %>% group_by(iteration, parameter) %>% mutate(truth = value[estimand=="result" & method=="truth"])  
 
-results_df_calc <- results_df_calc %>% group_by(iteration, parameter, method) %>% mutate(coverage = as.numeric(value[estimand=="lb"]<=truth & value[estimand=="ub"]>=truth), 
-                                                                                                bias = value[estimand=="result"] - truth, 
-                                                                                                MSE = (value[estimand=="result"] - truth)^2)
+results_df_calc <- results_df_calc %>% pivot_wider(id_cols = c(estimand, parameter, method, iteration), names_from=estimand, values_from=value)
 
 
-results_df_summary <- results_df_calc %>% filter(estimand=="result" & method!="truth")
-results_df_summary$parameter[results_df_summary$parameter=="HTE.EA"] <-  "HTE"
-results_df_summary$parameter[results_df_summary$parameter=="DTE.avg.EA"] <-  "DTE.avg"
+results_df_calc <- results_df_calc %>% group_by(iteration, parameter) %>% mutate(truth = result[method=="truth"])  
 
-results_df_summary <- results_df_summary %>% group_by(parameter, method) %>% summarise(coverage = mean(coverage), 
-                                                                                       bias = mean(bias), 
-                                                                                       MSE = mean(MSE))
 
-#write.csv(results_df_summary, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_results_summary_PTB_uniform.csv", row.names = F)
-write.csv(results_df_summary, file="../TWFE-simulation/results/twfe_sim_results_summary_PTB_uniform.csv", row.names = F)
+results_df_calc <- results_df_calc %>%  mutate(coverage = as.numeric(lb<=truth & ub>=truth),  
+                                               bias = result - truth, 
+                                               MSE = (result - truth)^2)
+
+
+results_df_calc <- results_df_calc %>% filter(method!="truth")
+# rename parameters so they all show up on same plot 
+results_df_calc$parameter[results_df_calc$parameter=="HTE.EA"] <-  "HTE"
+results_df_calc$parameter[results_df_calc$parameter=="DTE.avg.EA"] <-  "DTE.avg"
+
+
+results_df_summary <- results_df_calc %>% group_by(parameter, method) %>% summarise(coverage = mean(coverage), 
+                                                                                    bias = mean(bias), 
+                                                                                    MSE = mean(MSE), 
+                                                                                    power = mean(power))
+
+
+write.csv(results_df_summary, file="./results/twfe_uniform_sim_results_summary_PTB_n100.csv", row.names = F)
