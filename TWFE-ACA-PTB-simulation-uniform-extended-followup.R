@@ -1,9 +1,9 @@
-rm(list=ls())
 library(readxl)
 library(tidyverse)
 library(did)
 library(sandwich)
 library(ggrepel)
+library(lubridate)
 
 set.seed(461)
 #source in helpfer functions used in Ben-Micheal approach
@@ -633,4 +633,4 @@ results_df_summary <- results_df_calc %>% group_by(parameter, method) %>% summar
                                                                                     power = mean(power))
 
 
-write.csv(results_df_summary, file="./results/twfe_uniform_sim_results_summary_PTB_n100.csv", row.names = F)
+write.csv(results_df_summary, file="./results/twfe_uniform_sim_results_extended_followup_summary_PTB_n10.csv", row.names = F)
