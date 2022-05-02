@@ -613,7 +613,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
 }
 
 
-system.time(results_ls <- lapply(1:10, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.02, -0.01), DTE = c(-0.01, -0.015, -0.02))))
+system.time(results_ls <- lapply(1:10, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02))))
 #785.424 for 5 iterations (13 minutes/2.6 minutes per iteration) seconds on timberwolf
 #4.4 hours for 100 iterations - starting at 11:50am - should be done by 4:30pm ish
 
