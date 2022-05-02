@@ -1,4 +1,3 @@
-rm(list=ls())
 library(readxl)
 library(tidyverse)
 library(did)
@@ -6,6 +5,7 @@ library(sandwich)
 library(ggrepel)
 library(staggered)
 library(forecast)
+library(lubridate)
 
 #source in helpfer functions used in Ben-Micheal approach
 source("helper_func_ed.R")
@@ -233,21 +233,6 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   #sqrt(m1_var["A","A"])
   #sqrt(test["A","A"])
   
-  
-  # estimate effects using alternate TWFE approach  
-  
-  # generate post-policy indicator 
-  # if policy was implemented in that state, then the post-policy is the time since implementation
-  # if policy was not implemented, then the post-policy is the time since implementation was possible (1-1-2014, or month_ind ==37)
-  dat <- dat %>% group_by(FIPS) %>%  mutate(post_policy = ifelse(ever_A==1, as.numeric(time_since_A>=0), as.numeric(month_ind>=37)))
-  m1b <- glm(Y ~ ever_A*post_policy, data=dat, family="gaussian")
-  # get variance from sandwich estimator -- type = "HC0"
-  #m1_var<- sandwich(m1)
-  m1b_var <- vcovHC(m1b, type="HC3")
-  #summary(m1)$coefficients["A", "Std. Error"]
-  #sqrt(m1_var["A","A"])
-  #sqrt(test["A","A"])
-  
   print("gt ATT")
   # estimate effects using group-time ATT from Callaway and Sant'Anna
   m2 <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat, anticipation=0)
@@ -268,14 +253,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   #m1_var_i <- sandwich(m1_i)
   m1_var_i <- vcovHC(m1_i, type="HC3")
   
-  print("alt TWFE")
-  # alternate TWFE approach  if you only include those who eventually get the intervention 
-  # don't include the ever treated parameter because you are limiting to ever treated units
-  m1b_i <- glm(Y ~ post_policy, data=dat_i, family="gaussian")
-  # get variance from sandwich estimator
-  #m1_var_i <- sandwich(m1_i)
-  m1b_var_i <- vcovHC(m1b_i, type="HC3")
-  
+
   print("gt ATT not yet treated")
   # estimate effects using group-time ATT for only those who are not yet treated
   m2_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_i, anticipation=0, control_group = "notyettreated")
@@ -296,11 +274,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                                    lb = summary(m1)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_var["A","A"]), 
                                    ub = summary(m1)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"]), 
                                    power = as.numeric(summary(m1)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"])<0)), 
-                             cbind(estimator = "TWFE.alt", result = summary(m1b)$coefficients["ever_A:post_policy", "Estimate"], 
-                                   lb = summary(m1b)$coefficients["ever_A:post_policy", "Estimate"] - 1.96*sqrt(m1b_var["ever_A:post_policy","ever_A:post_policy"]), 
-                                   ub = summary(m1b)$coefficients["ever_A:post_policy", "Estimate"] + 1.96*sqrt(m1b_var["ever_A:post_policy","ever_A:post_policy"]), 
-                                   power = as.numeric(summary(m1b)$coefficients["ever_A:post_policy", "Estimate"] + 1.96*sqrt(m1b_var["ever_A:post_policy","ever_A:post_policy"])<0)), 
-                             cbind(estimator = "group.time.ATT", result = m2_ag$overall.att, 
+                            cbind(estimator = "group.time.ATT", result = m2_ag$overall.att, 
                                    lb = m2_ag$overall.att - 1.96*m2_ag$overall.se, 
                                    ub = m2_ag$overall.att + 1.96*m2_ag$overall.se, 
                                    power = as.numeric(m2_ag$overall.att + 1.96*m2_ag$overall.se<0)), 
@@ -312,10 +286,6 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                                    lb = summary(m1_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_var["A","A"]), 
                                    ub = summary(m1_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"]), 
                                    power = as.numeric(summary(m1_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"])<0)), 
-                             cbind(estimator = "TWFE.alt.ever.adopted", result = summary(m1b_i)$coefficients["post_policy", "Estimate"], 
-                                   lb = summary(m1b_i)$coefficients["post_policy", "Estimate"] - 1.96*sqrt(m1b_var["post_policy","post_policy"]), 
-                                   ub = summary(m1b_i)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m1b_var["post_policy","post_policy"]), 
-                                   power = as.numeric(summary(m1b_i)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m1b_var["post_policy","post_policy"])<0)), 
                              cbind(estimator = "group.time.ATT.ever.adopted", result = m2_ea_ag$overall.att, 
                                    lb = m2_ea_ag$overall.att - 1.96*m2_ea_ag$overall.se, 
                                    ub = m2_ea_ag$overall.att + 1.96*m2_ea_ag$overall.se, 
@@ -345,12 +315,6 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   #m1_hte_var <- sandwich(m1_hte)
   m1_hte_var <- vcovHC(m1_hte, type="HC3")
   
-  print("hetergeneous: alt TWFE")
-  # estimate effects using alternate TWFE approach  
-  m1b_hte <- glm(Y ~ ever_A*post_policy, data=dat_hte, family="gaussian")
-  # get variance from sandwich estimator -- type = "HC3"
-  m1b_hte_var <- vcovHC(m1b_hte, type="HC3")
-
   print("hetergeneous: gtATT")
   # estimate effects using group-time ATT
   m2_hte <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_hte, anticipation=0)
@@ -370,13 +334,6 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   #m1_hte_var_i <- sandwich(m1_hte_i)
   m1_hte_var_i <- vcovHC(m1_hte_i, type="HC3")
   
-  print("hetergeneous: TWFE alt 2")
-  # alternate TWFE approach  if you only include those who eventually get the intervention 
-  # don't include the ever treated parameter because you are limiting to ever treated units
-  m1b_hte_i <- glm(Y ~ post_policy, data=dat_hte_i, family="gaussian")
-  # get variance from sandwich estimator
-  #m1_var_i <- sandwich(m1_i)
-  m1b_hte_var_i <- vcovHC(m1b_hte_i, type="HC3")
  
   print("hetergeneous: gtATT among those who eventually get intervention") 
   # estimate effects using group-time ATT among those who eventually get the intervention 
@@ -397,11 +354,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                                    lb = summary(m1_hte)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_hte_var["A","A"]), 
                                    ub = summary(m1_hte)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var["A","A"]), 
                                    power = as.numeric(summary(m1_hte)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var["A","A"])<0)), 
-                             cbind(estimator = "TWFE.alt", result = summary(m1b_hte)$coefficients["ever_A:post_policy", "Estimate"], 
-                                   lb = summary(m1b_hte)$coefficients["ever_A:post_policy", "Estimate"] - 1.96*sqrt(m1b_hte_var["ever_A:post_policy","ever_A:post_policy"]), 
-                                   ub = summary(m1b_hte)$coefficients["ever_A:post_policy", "Estimate"] + 1.96*sqrt(m1b_hte_var["ever_A:post_policy","ever_A:post_policy"]), 
-                                   power = as.numeric(summary(m1b_hte)$coefficients["ever_A:post_policy", "Estimate"] + 1.96*sqrt(m1b_hte_var["ever_A:post_policy","ever_A:post_policy"])<0)), 
-                             cbind(estimator = "group.time.ATT", result = m2_hte_ag$overall.att, 
+                            cbind(estimator = "group.time.ATT", result = m2_hte_ag$overall.att, 
                                    lb = m2_hte_ag$overall.att - 1.96*m2_hte_ag$overall.se, 
                                    ub = m2_hte_ag$overall.att + 1.96*m2_hte_ag$overall.se, 
                                    power = as.numeric(m2_hte_ag$overall.att + 1.96*m2_hte_ag$overall.se<0)), 
@@ -416,11 +369,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                                        lb = summary(m1_hte_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_hte_var_i["A","A"]), 
                                        ub = summary(m1_hte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var_i["A","A"]), 
                                        power = as.numeric(summary(m1_hte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_hte_var_i["A","A"])<0)), 
-                                 cbind(estimator = "TWFE.alt.ever.adopted", result = summary(m1b_hte_i)$coefficients["post_policy", "Estimate"], 
-                                       lb = summary(m1b_hte_i)$coefficients["post_policy", "Estimate"] - 1.96*sqrt(m1b_hte_var_i["post_policy","post_policy"]), 
-                                       ub = summary(m1b_hte_i)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m1b_hte_var_i["post_policy","post_policy"]), 
-                                       power = as.numeric(summary(m1b_hte_i)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m1b_hte_var_i["post_policy","post_policy"])<0)), 
-                                 cbind(estimator = "group.time.ATT.ever.adopted", result = m2_hte_ea_ag$overall.att, 
+                                cbind(estimator = "group.time.ATT.ever.adopted", result = m2_hte_ea_ag$overall.att, 
                                        lb = m2_hte_ea_ag$overall.att - 1.96*m2_hte_ea_ag$overall.se, 
                                        ub = m2_hte_ea_ag$overall.att + 1.96*m2_hte_ea_ag$overall.se, 
                                        power = as.numeric(m2_hte_ea_ag$overall.att + 1.96*m2_hte_ea_ag$overall.se<0))))
@@ -464,12 +413,6 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   # get variance from sandwich estimator
   m1_dte_var <- vcovHC(m1_dte, type="HC3")
   
-  print("dynamic: alt TWFE")
-  # estimate effects using alternte TWFE approach
-  m1b_dte <- glm(Y ~ ever_A*post_policy, data=dat_dte, family="gaussian")
-  # get variance from sandwich estimator
-  m1b_dte_var <- vcovHC(m1b_dte, type="HC3")
-  
   print("dynamic: gtATT")
   # estimate effects using group-time ATT 
   m2_dte <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte, anticipation=0)
@@ -485,13 +428,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   #m1_dte_var_i <- sandwich(m1_dte_i)
   m1_dte_var_i <- vcovHC(m1_dte_i, type="HC3")
   
-  print("dynamic: alt TWFE 2")
-  # alternate TWFE approach 
-  m1b_dte_i <- glm(Y ~ post_policy, data=dat_dte_i, family="gaussian")
-  # get variance from sandwich estimator
-  #m1_dte_var_i <- sandwich(m1_dte_i)
-  m1b_dte_var_i <- vcovHC(m1b_dte_i, type="HC3")
-  
+
   print("dynamic gtATT eventually treated")
   # estimate effects using group-time ATT among those who eventually get the intervention 
   m2_dte_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte_i, anticipation=0, control_group = "notyettreated")
@@ -515,11 +452,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                                        lb = summary(m1_dte)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_dte_var["A","A"]), 
                                        ub = summary(m1_dte)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var["A","A"]), 
                                        power = as.numeric(summary(m1_dte)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var["A","A"])<0)), 
-                                 cbind(estimator = "TWFE.alt", result = summary(m1b_dte)$coefficients["ever_A:post_policy", "Estimate"], 
-                                       lb = summary(m1b_dte)$coefficients["ever_A:post_policy", "Estimate"] - 1.96*sqrt(m1b_dte_var["ever_A:post_policy","ever_A:post_policy"]), 
-                                       ub = summary(m1b_dte)$coefficients["ever_A:post_policy", "Estimate"] + 1.96*sqrt(m1b_dte_var["ever_A:post_policy","ever_A:post_policy"]), 
-                                       power = as.numeric(summary(m1b_dte)$coefficients["ever_A:post_policy", "Estimate"] + 1.96*sqrt(m1b_dte_var["ever_A:post_policy","ever_A:post_policy"])<0)), 
-                                 cbind(estimator = "group.time.ATT", result = m2_dte_ag$overall.att, 
+                                cbind(estimator = "group.time.ATT", result = m2_dte_ag$overall.att, 
                                        lb = m2_dte_ag$overall.att - 1.96*m2_dte_ag$overall.se, 
                                        ub = m2_dte_ag$overall.att + 1.96*m2_dte_ag$overall.se, 
                                        power = as.numeric(m2_dte_ag$overall.att + 1.96*m2_dte_ag$overall.se<0)))) 
@@ -529,10 +462,6 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                                           lb = summary(m1_dte_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_dte_var_i["A","A"]), 
                                           ub = summary(m1_dte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var_i["A","A"]), 
                                           power = as.numeric(summary(m1_dte_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_dte_var_i["A","A"])<0)), 
-                                    cbind(estimator = "TWFE.alt.ever.adopted", result = summary(m1b_dte_i)$coefficients["post_policy", "Estimate"], 
-                                          lb = summary(m1b_dte_i)$coefficients["post_policy", "Estimate"] - 1.96*sqrt(m1b_dte_var_i["post_policy","post_policy"]), 
-                                          ub = summary(m1b_dte_i)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m1b_dte_var_i["post_policy","post_policy"]), 
-                                          power = as.numeric(summary(m1b_dte_i)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m1b_dte_var_i["post_policy","post_policy"])<0)), 
                                     cbind(estimator = "group.time.ATT.ever.adopted", result = m2_dte_ea_ag$overall.att, 
                                           lb = m2_dte_ea_ag$overall.att - 1.96*m2_dte_ea_ag$overall.se, 
                                           ub = m2_dte_ea_ag$overall.att + 1.96*m2_dte_ea_ag$overall.se, 
@@ -720,4 +649,4 @@ results_df_summary <- results_df_calc %>% group_by(parameter, method) %>% summar
                                                                                        power = mean(power))
 
 
-write.csv(results_df_summary, file="./results/twfe_sim_results_summary_PTB_n100.csv", row.names = F)
+write.csv(results_df_summary, file="./results/twfe_sim_results_extended_followup_summary_PTB_n10.csv", row.names = F)
