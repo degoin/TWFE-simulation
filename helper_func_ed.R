@@ -36,7 +36,7 @@ fit_event_manual <- function(outcome_var, date_var,
   # get distinct policy times
   policy_times <- tmpdat %>% 
     distinct(policy_var) %>% 
-    filter(!is.infinite(policy_var)) %>% 
+    filter(!is.infinite(policy_var) & !is.na(policy_var)) %>% 
     pull()
   
   # estimate 2x2 DiDs
