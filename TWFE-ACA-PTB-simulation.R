@@ -13,7 +13,7 @@ library(staggered)
 packageVersion("staggered")
 packageVersion("did")
 
-#source in helpfer functions used in Ben-Micheal approach
+#source in helper functions used in Ben-Micheal approach
 source("helper_func_ed.R")
 
 #set.seed(15295632) #broke at iteration 45 (see error sent to Dana)
@@ -548,14 +548,15 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
 }
 
 
-system.time(results_ls <- lapply(1:10, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02))))
+system.time(results_ls <- lapply(1:1000, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02))))
 #785.424 for 5 iterations (13 minutes/2.6 minutes per iteration) seconds on timberwolf
 #4.4 hours for 100 iterations - starting at 11:50am - should be done by 4:30pm ish
+#last run stopped at i=323, see if it works this time...
 
 results_df <- data.frame(do.call(rbind, results_ls))
 
 #write.csv(results_df, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_results_PTB.csv", row.names = F)
-write.csv(results_df, file="../TWFE-simulation/results/twfe_sim_results_PTB_n10_05022022.csv", row.names = F)
+write.csv(results_df, file="./results/twfe_sim_results_PTB_n1000_05022022.csv", row.names = F)
 
 results_df_calc <- results_df %>% pivot_longer(cols= everything(), names_to=c("estimand", "parameter", "method"), names_sep="_")
 results_df_calc <- results_df_calc %>% group_by(estimand, parameter, method) %>% mutate(iteration = row_number())
@@ -584,4 +585,4 @@ results_df_summary <- results_df_calc %>% group_by(parameter, method) %>% summar
                                                                                        power = mean(power))
 
 
-write.csv(results_df_summary, file="./results/twfe_sim_results_summary_PTB_n10.csv", row.names = F)
+write.csv(results_df_summary, file="./results/twfe_sim_results_summary_PTB_n1000_05022022.csv", row.names = F)
