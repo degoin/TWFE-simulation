@@ -2,6 +2,7 @@ library(tidyverse)
 library(ggrepel)
 library(magrittr)
 library(forcats)
+library(patchwork)
 
 results_df_summary <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_05022022.csv")
 
@@ -27,6 +28,9 @@ table(results_df_summary$method2)
 #start with the non-dynamic plots
 results2 <- results_df_summary %>% filter(parameter %in% c("CTE","HTE","DTE.avg"))
 
+results2 %<>% mutate(parameter2 = fct_relevel(parameter, "CTE", "HTE", "DTE.avg"))
+table(results2$parameter2)
+
 # plot results 
 facet_labels <- c(CTE = "Constant treatment effect", HTE = "Heterogeneous treatment effect", DTE.avg = "Average dynamic treatment effect")
 
@@ -37,14 +41,15 @@ p1 <- ggplot(results2, aes(x = method3, y = coverage)) +
   geom_point(size=5) + #color = method
   geom_text(aes(label = coverage), position = position_nudge(x = 0.1, y = 0.04)) + 
   theme_bw(base_size = 15) + 
-  facet_wrap(~parameter, labeller = labeller(parameter = facet_labels)) + 
+  facet_wrap(~parameter2, labeller = labeller(parameter2 = facet_labels)) + 
   geom_hline(aes(yintercept=0.95), linetype=3) + 
-  labs(x = "", y = "95% confidence interval coverage") + 
+  labs(x = "", y = "Coverage") + 
   scale_x_continuous(breaks = c(1:5), labels=c("TWFE", "Group-time \nATT", 
                                                "Staggered SA", "Ever-treated \nTWFE",
                                                "Ever-treated \ngroup-time ATT")) +
   theme(axis.text.x=element_text(angle = 45, vjust = 0.1)) + #angle = 45) 
-  theme(legend.position = "none") #+
+  theme(legend.position = "none") +
+  scale_y_continuous(labels = scales::percent) 
   #coord_flip()
   #+ 
   #scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33"))
@@ -60,7 +65,7 @@ p2 <- ggplot(results2, aes(x= method3, y = bias))  +
   geom_point(size=5) +
   geom_text_repel(aes(label = round(bias, 5))) + # position = position_nudge(x = 0.2, y = 0.00001)
   theme_bw(base_size = 15) + 
-  facet_wrap(~parameter, labeller = labeller(parameter = facet_labels)) + 
+  facet_wrap(~parameter2, labeller = labeller(parameter2 = facet_labels)) + 
   geom_hline(aes(yintercept=0), linetype=3) + 
   labs(x="", y="Bias") + 
   scale_x_continuous(breaks = c(1:5), labels=c("TWFE", "Group-time \nATT", 
@@ -83,9 +88,9 @@ p3 <- ggplot(results2, aes(x = method3, y = MSE)) +
   geom_point(size=5) + 
   geom_text_repel(aes(label = round(MSE, 7))) +
   theme_bw(base_size = 15) + 
-  facet_wrap(~parameter, labeller = labeller(parameter = facet_labels)) + 
+  facet_wrap(~parameter2, labeller = labeller(parameter2 = facet_labels)) + 
   geom_hline(aes(yintercept=0), linetype=3) + 
-  labs(x="", y="MSE") + 
+  labs(x="", y="Mean Squared Error") + 
   scale_x_continuous(breaks = c(1:5), labels=c("TWFE", "Group-time \nATT", 
                                                "Staggered SA", "Ever-treated \nTWFE",
                                                "Ever-treated \ngroup-time ATT")) +
@@ -105,14 +110,15 @@ p4 <- ggplot(results2, aes(x = method3, y = power)) +
   geom_point(size=5) + 
   geom_text_repel(aes(label = sprintf(power, fmt = '%#.2f'))) +
   theme_bw(base_size = 15) + 
-  facet_wrap(~parameter, labeller = labeller(parameter = facet_labels)) + 
+  facet_wrap(~parameter2, labeller = labeller(parameter2 = facet_labels)) + 
   #geom_hline(aes(yintercept=0), linetype=3) + 
   labs(x="", y="Power") + 
   scale_x_continuous(breaks = c(1:5), labels=c("TWFE", "Group-time \nATT", 
                                                "Staggered SA", "Ever-treated \nTWFE",
                                                "Ever-treated \ngroup-time ATT")) +
   theme(axis.text.x=element_text(angle = 45, vjust = 0.1))  + 
-  theme(legend.position = "none") 
+  theme(legend.position = "none") +
+  scale_y_continuous(labels = scales::percent) 
 #+ scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3", "#e34a33"))
 
 results_df_summary %<>% mutate(ever.adopted.est = case_when(method %in% c("TWFE.ever.adopted", "group.time.ATT.ever.adopted") ~ "Ever-treated only", 
@@ -121,6 +127,11 @@ results_df_summary %<>% mutate(ever.adopted.est = case_when(method %in% c("TWFE.
 p4
 ggsave(p4, file="../TWFE-simulation/results/twfe_sim_power_PTB_n1000.png", 
        width=15, height = 5, device = "png")
+
+all_1 <- p1 + p2 + p3 + p4 + plot_layout(nrow = 4)
+all_1
+ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all_PTB_n1000.png", 
+       width=15, height = 20, device = "png")
 
 # dynamic effects 
 results_df_summary <- results_df_summary %>% mutate(time_pt = substr(parameter, 4, 8))
@@ -259,3 +270,8 @@ p71
 
 ggsave(p71, file="../TWFE-simulation/results/dyn_power_n1000_PTB.png", 
        width=12, height = 4, device = png)
+
+dyn_all <- p41 + p51 + p61 + p71 + plot_layout(nrow = 4, guides = "collect")
+
+ggsave(dyn_all, file="../TWFE-simulation/results/dyn_all_n1000_PTB.png", 
+       width=15, height = 20, device = png)
