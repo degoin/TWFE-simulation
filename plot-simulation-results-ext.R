@@ -77,12 +77,12 @@ p1
 ggsave(p1, file="../TWFE-simulation/results/twfe_sim_coverage_PTB_n1000_ext.png", 
        width=15, height = 5, device = "png")
 
-extremes <- results2 %>% summarise(min = min(bias), max = max(bias))
+extremes2 <- results2 %>% summarise(min = min(bias), max = max(bias))
 
-p2 <- ggplot(results2, aes(x= method3, y = bias))  + 
+p2 <- ggplot(results2, aes(x = method3, y = bias))  + 
   geom_rect(aes(xmin = 3.5, xmax = 5.5, 
-                ymin = extremes %>% pull(min) - 0.002, 
-                ymax = extremes %>% pull(max) + 0.002),
+                ymin = extremes2 %>% pull(min) - 0.002, 
+                ymax = extremes2 %>% pull(max) + 0.002),
                 #ymin = -0.002, ymax = 0.005),
             fill = "lightgrey", alpha = 0.5) +
   geom_point(data = results2_compare, aes(col = "Previous results"), size = 5) + 
@@ -105,12 +105,12 @@ p2
 ggsave(p2, file="../TWFE-simulation/results/twfe_sim_bias_PTB_n1000_ext.png", 
        width=15, height = 5, device = "png")
 
-extremes <- results2 %>% summarise(min = min(MSE), max = max(MSE))
+extremes3 <- results2 %>% summarise(min = min(MSE), max = max(MSE))
 
 p3 <- ggplot(results2, aes(x = method3, y = MSE)) + 
   geom_rect(aes(xmin = 3.5, xmax = 5.5,
-                ymin = extremes %>% pull(min) - 0.000002, 
-                ymax = extremes %>% pull(max) + 0.000002),
+                ymin = extremes3 %>% pull(min) - 0.000002, 
+                ymax = extremes3 %>% pull(max) + 0.000002),
             #ymin = 0, ymax = 2.4e-05),
             fill = "lightgrey", alpha = 0.5) +
   geom_point(data = results2_compare, aes(col = "Previous results"), size = 5) + 
@@ -132,12 +132,12 @@ p3
 ggsave(p3, file="../TWFE-simulation/results/twfe_sim_mse_PTB_n1000_ext.png", 
        width=15, height = 5, device = "png")
 
-extremes <- results2 %>% summarise(min = min(power), max = max(power))
+extremes4 <- results2 %>% summarise(min = min(power), max = max(power))
 
 p4 <- ggplot(results2, aes(x = method3, y = power)) + 
   geom_rect(aes(xmin = 3.5, xmax = 5.5, 
-                ymin = extremes %>% pull(min) - 0.1, 
-                ymax = extremes %>% pull(max) + 0.1),
+                ymin = extremes4 %>% pull(min) - 0.1, 
+                ymax = extremes4 %>% pull(max) + 0.1),
             #ymin = 0, ymax = 2.4e-05),
             #ymin = 0.5, ymax = 1.1),
             fill = "lightgrey", alpha = 0.5) +
@@ -160,6 +160,67 @@ p4
 ggsave(p4, file="../TWFE-simulation/results/twfe_sim_power_PTB_n1000_ext.png", 
        width=15, height = 5, device = "png")
 
-results_df_summary %<>% mutate(ever.adopted.est = case_when(method %in% c("TWFE.ever.adopted", "group.time.ATT.ever.adopted") ~ "Ever-treated only", 
-                                                            !(method %in% c("TWFE.ever.adopted", "group.time.ATT.ever.adopted")) ~ "All states"))
+all_1 <- p1 + p2 + p3 + p4 + plot_layout(nrow = 4)
+all_1
+ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all_PTB_n1000_ext.png", 
+       width=15, height = 20, device = "png")
 
+results_df_summary %<>% 
+  mutate(ever.adopted.est = case_when(
+    method %in% c("TWFE.ever.adopted", "group.time.ATT.ever.adopted") ~ "Ever-treated only", 
+    !(method %in% c("TWFE.ever.adopted", "group.time.ATT.ever.adopted")) ~ "All states")
+    )
+
+# dynamic effects 
+results_df_summary <- results_df_summary %>% mutate(time_pt = substr(parameter, 4, 8))
+results_df_summary <- results_df_summary %>% mutate(time_pt = ifelse(parameter=="DTE.avg", "", time_pt))
+results_df_summary <- results_df_summary %>% mutate(time_pt = sub("..","-",time_pt, fixed = TRUE))
+results_df_summary <- results_df_summary %>% mutate(time_pt = as.numeric(sub(".","",time_pt, fixed = TRUE)))
+results_df_summary <- results_df_summary %>% mutate(pre_post = as.numeric(time_pt>=0))
+
+# coverage
+results3 <- results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg"))
+
+#reference to old results
+results_df_summary_compare %<>% 
+  mutate(ever.adopted.est = case_when(
+    method %in% c("TWFE.ever.adopted", "group.time.ATT.ever.adopted") ~ "Ever-treated only", 
+    !(method %in% c("TWFE.ever.adopted", "group.time.ATT.ever.adopted")) ~ "All states")
+  )
+
+# dynamic effects 
+results_df_summary_compare <- results_df_summary_compare %>% mutate(time_pt = substr(parameter, 4, 8))
+results_df_summary_compare <- results_df_summary_compare %>% mutate(time_pt = ifelse(parameter=="DTE.avg", "", time_pt))
+results_df_summary_compare <- results_df_summary_compare %>% mutate(time_pt = sub("..","-",time_pt, fixed = TRUE))
+results_df_summary_compare <- results_df_summary_compare %>% mutate(time_pt = as.numeric(sub(".","",time_pt, fixed = TRUE)))
+results_df_summary_compare <- results_df_summary_compare %>% mutate(pre_post = as.numeric(time_pt>=0))
+
+# coverage
+results3 <- results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg"))
+results3_compare <- results_df_summary_compare %>% filter(!parameter %in% c("CTE","HTE","DTE.avg"))
+
+p41 <- ggplot(results3,
+              aes(x = time_pt, y = coverage, col = method2)) +
+  geom_line(data = results3_compare, aes(col = method2, alpha = "Previous results")) +
+  geom_line(aes(col = method2, alpha = "Extended time")) +
+  #geom_point(aes(col = method2)) +
+  geom_vline(xintercept = 0, linetype = 2) +
+  geom_hline(yintercept = 0.95) +
+  scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33", "black"),
+                     labels=c("TWFE", "Group-time \nATT", 
+                              "Stacked regression", "Ever-treated \nTWFE",
+                              "Ever-treated \ngroup-time ATT")) +
+  # labels=c("group-time \nATT", "ever-treated \ngroup-time ATT",
+  #          "stacked \nregression", "TWFE", "ever-treated \nTWFE"
+  labs(y = "Coverage", x = "Method") +
+  theme_bw(base_size = 15) + 
+  theme(legend.title=element_blank()) + 
+  scale_y_continuous(labels = scales::percent) +
+  scale_alpha_manual(values = c(1, 0.5)) + 
+  facet_wrap(~method2)
+  #facet_wrap(~ever.adopted.est)
+
+p41
+#ggsave(p41, file="../TWFE-simulation/results/twfe_sim_coverage3_PTB.pdf", width=10)
+ggsave(p41, file="../TWFE-simulation/results/dyn_coverage_n1000_ext.png", 
+       width=15,height = 6, device = png)
