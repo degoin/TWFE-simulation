@@ -235,13 +235,13 @@ p41 <- ggplot(results3,
   theme(legend.title=element_blank()) + 
   scale_y_continuous(labels = scales::percent) +
   scale_alpha_manual(values = c(1, 0.5)) + 
-  facet_wrap(~method2_f)
+  facet_wrap(~method2_f, nrow = 1)
   #facet_wrap(~ever.adopted.est)
 
 p41
 #ggsave(p41, file="../TWFE-simulation/results/twfe_sim_coverage3_PTB.pdf", width=10)
 ggsave(p41, file="../TWFE-simulation/results/dyn_coverage_n1000_ext.png", 
-       width=15,height = 6, device = png)
+       width=20,height = 4, device = png)
 
 p51 <- ggplot(results3,
               aes(x = time_pt, y = bias)) +
@@ -258,9 +258,60 @@ p51 <- ggplot(results3,
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
   scale_alpha_manual(values = c(1, 0.5)) + 
-  facet_wrap(~method2_f)
+  facet_wrap(~method2_f, nrow = 1)
 
 p51
 #ggsave(p51, file="../TWFE-simulation/results/twfe_sim_bias3_PTB.pdf", width=10)
 ggsave(p51, file="../TWFE-simulation/results/dyn_bias_n1000_ext.png", 
-       width=10,height = 4, device = png)
+       width=20,height = 4, device = png)
+
+p61 <- ggplot(results3,
+              aes(x = time_pt, y = MSE)) +
+  geom_line(data = results3_compare, aes(col = method2_f, alpha = "Previous results")) +
+  geom_line(aes(col = method2_f, alpha = "Extended time")) +
+  geom_vline(xintercept = 0, linetype = 2) +
+  geom_hline(yintercept = 0) +
+  scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33", "black"), 
+                     labels=c("TWFE", "Group-time \nATT", 
+                              "Stacked regression", "Ever-treated \nTWFE",
+                              "Ever-treated \ngroup-time ATT")) +
+  labs(y = "Mean squared error", x = "Method") +
+  theme_bw(base_size = 15)  + 
+  theme(legend.title=element_blank()) + 
+  scale_alpha_manual(values = c(1, 0.5)) + 
+  facet_wrap(~method2_f, nrow = 1)
+
+p61
+#ggsave(p61, file="../TWFE-simulation/results/twfe_sim_mse3_PTB.pdf", width=10)
+
+ggsave(p61, file="../TWFE-simulation/results/dyn_mse_n1000_ext.png", 
+       width=20,height = 4, device = png)
+
+#power 
+
+p71 <- ggplot(results3,
+              aes(x = time_pt, y = power)) +
+  geom_line(data = results3_compare, aes(col = method2_f, alpha = "Previous results")) +
+  geom_line(aes(col = method2_f, alpha = "Extended time")) +
+  geom_vline(xintercept = 0, linetype = 2) +
+  #geom_hline(yintercept = 1) +
+  scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33", "black"), 
+                     labels=c("TWFE", "Group-time \nATT", 
+                              "Stacked regression", "Ever-treated \nTWFE",
+                              "Ever-treated \ngroup-time ATT")) +
+  labs(y = "Power", x = "Method") +
+  theme_bw(base_size = 15) + 
+  theme(legend.title=element_blank()) + 
+  scale_y_continuous(labels = scales::percent) +
+  scale_alpha_manual(values = c(1, 0.5)) + 
+  facet_wrap(~method2_f, nrow = 1)
+
+p71
+
+ggsave(p71, file="../TWFE-simulation/results/dyn_power_n1000_ext.png", 
+       width=20, height = 4, device = png)
+
+dyn_all <- p41 + p51 + p61 + p71 + plot_layout(nrow = 4, guides = "collect")
+
+ggsave(dyn_all, file="../TWFE-simulation/results/dyn_all_n1000_all.png", 
+       width=20, height = 20, device = png)
