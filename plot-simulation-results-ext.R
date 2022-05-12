@@ -199,10 +199,28 @@ results_df_summary_compare <- results_df_summary_compare %>% mutate(pre_post = a
 results3 <- results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg"))
 results3_compare <- results_df_summary_compare %>% filter(!parameter %in% c("CTE","HTE","DTE.avg"))
 
+results3 %<>% mutate(method2_f = case_when(method2 == "TWFE" ~ "TWFE",
+                                           method2 == "group.time.ATT" ~ "Group-time ATT",
+                                           method2 == "stacked.regression" ~ "Staggered SA",
+                                           method2 == "TWFE.ever.adopted" ~ "Ever-treated TWFE",
+                                           method2 == "group.time.ATT.ever.adopted" ~ "Ever-treated group-time ATT")) %>%
+  mutate(method2_f = fct_relevel(method2_f, c("TWFE", "Group-time ATT", "Staggered SA",
+                                              "Ever-treated TWFE", "Ever-treated group-time ATT")))
+
+results3_compare %<>% mutate(method2_f = case_when(method2 == "TWFE" ~ "TWFE",
+                                                   method2 == "group.time.ATT" ~ "Group-time ATT",
+                                                   method2 == "stacked.regression" ~ "Staggered SA",
+                                                   method2 == "TWFE.ever.adopted" ~ "Ever-treated TWFE",
+                                                   method2 == "group.time.ATT.ever.adopted" ~ "Ever-treated group-time ATT")) %>%
+  mutate(method2_f = fct_relevel(method2_f, c("TWFE", "Group-time ATT", "Staggered SA",
+                                              "Ever-treated TWFE", "Ever-treated group-time ATT")))
+
+
+
 p41 <- ggplot(results3,
-              aes(x = time_pt, y = coverage, col = method2)) +
-  geom_line(data = results3_compare, aes(col = method2, alpha = "Previous results")) +
-  geom_line(aes(col = method2, alpha = "Extended time")) +
+              aes(x = time_pt, y = coverage)) +
+  geom_line(data = results3_compare, aes(col = method2_f, alpha = "Previous results")) +
+  geom_line(aes(col = method2_f, alpha = "Extended time")) +
   #geom_point(aes(col = method2)) +
   geom_vline(xintercept = 0, linetype = 2) +
   geom_hline(yintercept = 0.95) +
@@ -217,10 +235,32 @@ p41 <- ggplot(results3,
   theme(legend.title=element_blank()) + 
   scale_y_continuous(labels = scales::percent) +
   scale_alpha_manual(values = c(1, 0.5)) + 
-  facet_wrap(~method2)
+  facet_wrap(~method2_f)
   #facet_wrap(~ever.adopted.est)
 
 p41
 #ggsave(p41, file="../TWFE-simulation/results/twfe_sim_coverage3_PTB.pdf", width=10)
 ggsave(p41, file="../TWFE-simulation/results/dyn_coverage_n1000_ext.png", 
        width=15,height = 6, device = png)
+
+p51 <- ggplot(results3,
+              aes(x = time_pt, y = bias)) +
+  geom_line(data = results3_compare, aes(col = method2_f, alpha = "Previous results")) +
+  geom_line(aes(col = method2_f, alpha = "Extended time")) +
+  geom_vline(xintercept = 0, linetype = 2) +
+  geom_hline(yintercept = 0) +
+  scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33", "black"),
+                     guide = "none") + 
+  # labels=c("TWFE", "Group-time \nATT", 
+  #          "Stacked regression", "Ever-treated \nTWFE",
+  #          "Ever-treated \ngroup-time ATT")) +
+  labs(y = "Bias", x = "Method") +
+  theme_bw(base_size = 15) + 
+  theme(legend.title=element_blank()) + 
+  scale_alpha_manual(values = c(1, 0.5)) + 
+  facet_wrap(~method2_f)
+
+p51
+#ggsave(p51, file="../TWFE-simulation/results/twfe_sim_bias3_PTB.pdf", width=10)
+ggsave(p51, file="../TWFE-simulation/results/dyn_bias_n1000_ext.png", 
+       width=10,height = 4, device = png)
