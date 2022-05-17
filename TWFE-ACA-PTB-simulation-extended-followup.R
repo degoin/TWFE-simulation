@@ -424,7 +424,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print("dynamic: gtATT")
   # estimate effects using group-time ATT 
   m2_dte <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte, anticipation=0)
-  m2_dte_ag <- aggte(m2_dte, type="simple")
+  m2_dte_ag <- aggte(m2_dte, type="dynamic")
   #summary(m2_hte_ag) 
   #ggdid(m2_hte_ag)
   
