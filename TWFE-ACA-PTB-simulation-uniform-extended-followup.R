@@ -206,7 +206,7 @@ dat$A_time[is.infinite(dat$A_time)] <- 0
 dat <- dat %>% group_by(State) %>% mutate(ever_A = max(A))
 
 # classify the time since the intervention for those who got it 
-dat <- dat %>% mutate(time_since_A = ifelse(ever_A==0, NA, month_ind-A_time))
+dat <- dat %>% mutate(time_since_A = ifelse(ever_A==0, 0, month_ind-A_time))
                           
 
 ##############################################################################################################################
