@@ -156,7 +156,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print("gt ATT")
   
   m2 <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat, anticipation=0)
-  m2_ag <- aggte(m2, type="simple")
+  m2_ag <- aggte(m2, type="group")
   #m2_ag$overall.att
   
   print("sun abraham")
@@ -176,7 +176,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print("gt ATT not yet treated")
   # estimate effects using group-time ATT for only those who are not yet treated
   m2_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_i, anticipation=0, control_group = "notyettreated")
-  m2_ea_ag <- aggte(m2_ea, type="simple")
+  m2_ea_ag <- aggte(m2_ea, type="group")
   
   
   # define truth 
