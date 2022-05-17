@@ -143,7 +143,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   # table(dat$state_name, dat$ever_A) #check
   
   # classify the time since the intervention for those who got it 
-  dat <- dat %>% mutate(time_since_A = ifelse(ever_A == 0, NA, month_ind - A_time))
+  dat <- dat %>% mutate(time_since_A = ifelse(ever_A == 0, 0, month_ind - A_time))
   
   
   ##############################################################################################################################
