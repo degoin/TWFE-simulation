@@ -367,12 +367,12 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print("dynamic gtATT eventually treated")
   # estimate effects using group-time ATT among those who eventually get the intervention 
   m2_dte_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte_i, anticipation=0, control_group = "notyettreated")
-  m2_dte_ea_ag <- aggte(m2_dte_ea, type="simple")
+  m2_dte_ea_ag <- aggte(m2_dte_ea, type="dynamic")
   
   # calculate the truth for the average effect in the post-period 
-  dte_truth_avg <- (DTE[1]*sum(dat_dte$time_since_A>=0 & dat_dte$time_since_A<12, na.rm=T) + 
-                      DTE[2]*sum(dat_dte$time_since_A>=12 & dat_dte$time_since_A<24, na.rm=T) +
-                      DTE[3]*sum(dat_dte$time_since_A>=24, na.rm=T))/sum(dat_dte$time_since_A>=0,na.rm=T)
+  dte_truth_avg <- (DTE[1]*sum(dat_dte$time_since_A>=0 & dat_dte$time_since_A<12 & dat_dte$ever_A==1, na.rm=T) + 
+                      DTE[2]*sum(dat_dte$time_since_A>=12 & dat_dte$time_since_A<24 & dat_dte$ever_A==1, na.rm=T) +
+                      DTE[3]*sum(dat_dte$time_since_A>=24 & dat_dte$ever_A==1, na.rm=T))/sum(dat_dte$time_since_A>=0 & dat_dte$ever_A==1,na.rm=T)
   
   
   # calculate truth for average effect in the post-period for ever adopted group -- need to exclude last treated group 
