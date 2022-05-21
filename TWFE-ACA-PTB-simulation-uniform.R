@@ -108,7 +108,7 @@ dat <- dat %>% group_by(FIPS) %>% mutate(month_ind = 1:num_months)
 # 21 sates expanded Medicaid -- for those that expanded, draw expansion date uniformly in post-period  
 
 # create treatment indicator by month by randomly sampling post-exposure month 
-dat <- dat %>% group_by(FIPS) %>%  mutate(first_A = ifelse(Expanded_Medicaid==1, sample(c(37,45,53,61), size=1), NA)) 
+dat <- dat %>% group_by(FIPS) %>%  mutate(first_A = ifelse(Expanded_Medicaid==1, sample(c(37,45,53,62), size=1), NA)) 
 
 dat <- dat %>% mutate(A = as.numeric(month_ind>=first_A)) 
 dat$A[is.na(dat$A)] <- 0
@@ -152,13 +152,11 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   #sqrt(m1_var["A","A"])
   #sqrt(test["A","A"])
   
-  # estimate effects using group-time ATT
   print("gt ATT")
-  
+  # estimate effects using group-time ATT
   m2 <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat, anticipation=0)
   m2_ag <- aggte(m2, type="group")
-  #m2_ag$overall.att
-  
+
   print("sun abraham")
   # estimate effects using Sun and Abraham approach 
   dat <- dat %>% mutate(A_time_sa = ifelse(A_time!=0, A_time, Inf))
@@ -170,7 +168,6 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   
   m1_i <- glm(Y ~ A + factor(State) + factor(month_ind), data=dat_i, family="gaussian")
   # get variance from sandwich estimator
-  #m1_var_i <- sandwich(m1_i)
   m1_var_i <- vcovHC(m1_i, type="HC3")
   
   print("gt ATT not yet treated")
@@ -236,7 +233,6 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   m2_hte <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_hte, anticipation=0)
   m2_hte_ag <- aggte(m2_hte, type="group")
   
-  #ggdid(m2_hte_ag)
   print("hetergeneous: SA")
   # estimate effects using Sun and Abraham approach 
   m3_hte <- staggered_sa(df = dat_hte, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "simple")
@@ -257,11 +253,12 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   
   
   # calculate the truth for the HTE parameter
-  hte_truth <- (HTE[1]*length(dat_hte$HTE[dat_hte$A_time<40 & dat_hte$A_time==dat_hte$month_ind]) + HTE[2]*length(dat_hte$HTE[dat_hte$A_time>=40 & dat_hte$A_time==dat_hte$month_ind]))/length(unique(dat_hte$State[dat_hte$ever_A==1]))
+  # number of states that are treated before time=40 , then number of states after time=40, divided by total
+  hte_truth <- (HTE[1]*length(dat_hte$HTE[dat_hte$A_time<40 & dat_hte$A_time==dat_hte$month_ind & dat_hte$ever_A==1]) + HTE[2]*length(dat_hte$HTE[dat_hte$A_time>=40 & dat_hte$A_time==dat_hte$month_ind & dat_hte$ever_A==1]))/length(unique(dat_hte$State[dat_hte$ever_A==1]))
   
   
-  # calculate different truth for ever-adopted 
-  hte_truth_ea <- (HTE[1]*length(dat_hte_i$HTE[dat_hte_i$A_time<40 & dat_hte_i$A_time==dat_hte_i$month_ind]) + HTE[2]*length(dat_hte_i$HTE[dat_hte_i$A_time>=40 & dat_hte_i$A_time<max(m2_hte$group) & dat_hte_i$A_time==dat_hte_i$month_ind]))/length(unique(dat_hte_i$State[dat_hte_i$ever_A==1 & dat_hte_i$A_time<max(m2_hte$group)]))
+  # calculate different truth for ever-adopted, which should exclude the last treated group
+  hte_truth_ea <- (HTE[1]*length(dat_hte_i$HTE[dat_hte_i$A_time<40 & dat_hte_i$A_time==dat_hte_i$month_ind & dat_hte_i$ever_A==1]) + HTE[2]*length(dat_hte_i$HTE[dat_hte_i$A_time>=40 & dat_hte_i$A_time<max(m2_hte$group) & dat_hte_i$A_time==dat_hte_i$month_ind]))/length(unique(dat_hte_i$State[dat_hte_i$ever_A==1 & dat_hte_i$A_time<max(m2_hte$group)]))
   
   
   print("combine heterogeneous")
@@ -334,8 +331,6 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   # estimate effects using group-time ATT 
   m2_dte <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte, anticipation=0)
   m2_dte_ag <- aggte(m2_dte, type="dynamic")
-  #summary(m2_dte_ag) 
-  #ggdid(m2_dte_ag)
   
   print("dynamic: TWFE eventually treated")
   # TWFE if you only include those who eventually get the intervention 
@@ -348,25 +343,22 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print("dynamic gtATT eventually treated")
   # estimate effects using group-time ATT among those who eventually get the intervention 
   m2_dte_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte_i, anticipation=0, control_group = "notyettreated")
-  m2_dte_ea_ag <- aggte(m2_dte_ea, type="simple")
-  
-  # calculate number of state-months of treatment for denominator, state-months of each treatment size in numerator
-  dat_dte <- dat_dte %>% group_by(State) %>% mutate(num_post_months = max(time_since_A))
-  dat_dte$num_post_months <- ifelse(dat_dte$time_since_A==dat_dte$num_post_months, dat_dte$num_post_months, NA)
-  # I think this is wrong because it excludes time t=0, which is an intervention period 
+  m2_dte_ea_ag <- aggte(m2_dte_ea, type="dynamic")
   
   # calculate the truth for the average effect in the post-period 
-  dte_truth_avg <- (DTE[1]*sum(dat_dte$time_since_A>=0 & dat_dte$time_since_A<12, na.rm=T) + 
-                      DTE[2]*sum(dat_dte$time_since_A>=12 & dat_dte$time_since_A<24, na.rm=T) +
-                      DTE[3]*sum(dat_dte$time_since_A>=24, na.rm=T))/sum(dat_dte$time_since_A>=0,na.rm=T)
+  #dte_truth_avg <- (DTE[1]*sum(dat_dte$time_since_A>=0 & dat_dte$time_since_A<12 & dat_dte$ever_A==1, na.rm=T) + 
+  #                    DTE[2]*sum(dat_dte$time_since_A>=12 & dat_dte$time_since_A<24 & dat_dte$ever_A==1, na.rm=T) +
+  #                    DTE[3]*sum(dat_dte$time_since_A>=24 & dat_dte$ever_A==1, na.rm=T))/sum(dat_dte$time_since_A>=0 & dat_dte$ever_A==1,na.rm=T)
   
-  
+  dte_truth_avg <- (DTE[1]*12 + DTE[2]*12 + DTE[3]*(max(dat_dte$month_ind) - min(dat_dte$A_time[dat_dte$ever_A==1]) - 24))/(max(dat_dte$month_ind) - min(dat_dte$A_time[dat_dte$ever_A==1]))
+
   # calculate truth for average effect in the post-period for ever adopted group -- need to exclude last treated group 
-  dte_truth_avg_ea <- (DTE[1]*sum(dat_dte_i$time_since_A>=0 & dat_dte_i$time_since_A<12 & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) + 
-                         DTE[2]*sum(dat_dte_i$time_since_A>=12 & dat_dte_i$time_since_A<24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) +
-                         DTE[3]*sum(dat_dte_i$time_since_A>=24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T))/sum(dat_dte_i$time_since_A>=0 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T)
+ # dte_truth_avg_ea <- (DTE[1]*sum(dat_dte_i$time_since_A>=0 & dat_dte_i$time_since_A<12 & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) + 
+#                         DTE[2]*sum(dat_dte_i$time_since_A>=12 & dat_dte_i$time_since_A<24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) +
+ #                        DTE[3]*sum(dat_dte_i$time_since_A>=24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T))/sum(dat_dte_i$time_since_A>=0 & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T)
   
-  
+  dte_truth_avg_ea <- (DTE[1]*12 + DTE[2]*12 + DTE[3]*(max(dat_dte_i$A_time) - min(dat_dte_i$A_time) - 24))/(max(dat_dte_i$A_time) - min(dat_dte_i$A_time))
+
   print("dynamic combine")
   # combine results 
   df_dte_avg <- data.frame(rbind(cbind(estimator="truth", result=dte_truth_avg, lb = NA, ub = NA, power=NA), 
@@ -430,7 +422,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   m2_dte_yr_ag <- aggte(m2_dte_yr, type="dynamic", cband=TRUE)
   #summary(m2_hte_ag) 
   
-  print("yearly effect in post period Ben Micheal")
+  print("yearly effect in post period Ben Michael")
   # estimate effects using stacked regression from Ben Michael paper 
   dat_dte <- dat_dte %>% ungroup()
   dat_dte$month <- as.Date(dat_dte$month)
@@ -440,8 +432,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   m3_dte <- fit_event_jack(outcome = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat_dte, max_time_to = 10000) %>% 
     filter(cohort=="average")
   
-  #ggdid(m2_dte_yr_ag)
-  
+
   print("yearly effect TWFE ever treated")
   # estimate TWFE model only among those who ever get the intervention 
   m1_dte_yr_i <- glm(Y ~ factor(time_since_A)  +  factor(State) + factor(month_ind), data=dat_dte_i, family="gaussian")
