@@ -440,19 +440,22 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print("dynamic gtATT eventually treated")
   # estimate effects using group-time ATT among those who eventually get the intervention 
   m2_dte_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte_i, anticipation=0, control_group = "notyettreated")
-  m2_dte_ea_ag <- aggte(m2_dte_ea, type="simple")
+  m2_dte_ea_ag <- aggte(m2_dte_ea, type="dynamic")
   
   # calculate the truth for the average effect in the post-period 
-  dte_truth_avg <- (DTE[1]*sum(dat_dte$time_since_A>=0 & dat_dte$time_since_A<12, na.rm=T) + 
-                      DTE[2]*sum(dat_dte$time_since_A>=12 & dat_dte$time_since_A<24, na.rm=T) +
-                      DTE[3]*sum(dat_dte$time_since_A>=24, na.rm=T))/sum(dat_dte$time_since_A>=0,na.rm=T)
+  #dte_truth_avg <- (DTE[1]*sum(dat_dte$time_since_A>=0 & dat_dte$time_since_A<12, na.rm=T) + 
+  #                    DTE[2]*sum(dat_dte$time_since_A>=12 & dat_dte$time_since_A<24, na.rm=T) +
+  #                    DTE[3]*sum(dat_dte$time_since_A>=24, na.rm=T))/sum(dat_dte$time_since_A>=0,na.rm=T)
+  
+  dte_truth_avg <- (DTE[1]*12 + DTE[2]*12 + DTE[3]*(max(dat_dte$month_ind) - min(dat_dte$A_time[dat_dte$ever_A==1]) - 24))/(max(dat_dte$month_ind) - min(dat_dte$A_time[dat_dte$ever_A==1]))
   
   
   # calculate truth for average effect in the post-period for ever adopted group -- need to exclude last treated group 
-  dte_truth_avg_ea <- (DTE[1]*sum(dat_dte_i$time_since_A>=0 & dat_dte_i$time_since_A<12 & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) +
-                         DTE[2]*sum(dat_dte_i$time_since_A>=12 & dat_dte_i$time_since_A<24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) +
-                         DTE[3]*sum(dat_dte_i$time_since_A>=24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T))/sum(dat_dte_i$time_since_A>=0 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T)
+  #dte_truth_avg_ea <- (DTE[1]*sum(dat_dte_i$time_since_A>=0 & dat_dte_i$time_since_A<12 & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) +
+  #                       DTE[2]*sum(dat_dte_i$time_since_A>=12 & dat_dte_i$time_since_A<24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) +
+  #                       DTE[3]*sum(dat_dte_i$time_since_A>=24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T))/sum(dat_dte_i$time_since_A>=0 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T)
   
+  dte_truth_avg_ea <- (DTE[1]*12 + DTE[2]*12 + DTE[3]*(max(dat_dte_i$A_time) - min(dat_dte_i$A_time) - 24))/(max(dat_dte_i$A_time) - min(dat_dte_i$A_time))
   
   print("dynamic combine")
   # combine results 
@@ -621,7 +624,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
 }
 
 
-system.time(results_ls <- lapply(1:1000, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02))))
+system.time(results_ls <- lapply(1:100, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02))))
 #785.424 for 5 iterations (13 minutes/2.6 minutes per iteration) seconds on timberwolf
 #4.4 hours for 100 iterations - starting at 11:50am - should be done by 4:30pm ish
 
