@@ -370,15 +370,18 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   m2_dte_ea_ag <- aggte(m2_dte_ea, type="dynamic")
   
   # calculate the truth for the average effect in the post-period 
-  dte_truth_avg <- (DTE[1]*sum(dat_dte$time_since_A>=0 & dat_dte$time_since_A<12 & dat_dte$ever_A==1, na.rm=T) + 
-                      DTE[2]*sum(dat_dte$time_since_A>=12 & dat_dte$time_since_A<24 & dat_dte$ever_A==1, na.rm=T) +
-                      DTE[3]*sum(dat_dte$time_since_A>=24 & dat_dte$ever_A==1, na.rm=T))/sum(dat_dte$time_since_A>=0 & dat_dte$ever_A==1,na.rm=T)
+  #dte_truth_avg <- (DTE[1]*sum(dat_dte$time_since_A>=0 & dat_dte$time_since_A<12 & dat_dte$ever_A==1, na.rm=T) + 
+  #                    DTE[2]*sum(dat_dte$time_since_A>=12 & dat_dte$time_since_A<24 & dat_dte$ever_A==1, na.rm=T) +
+  #                    DTE[3]*sum(dat_dte$time_since_A>=24 & dat_dte$ever_A==1, na.rm=T))/sum(dat_dte$time_since_A>=0 & dat_dte$ever_A==1,na.rm=T)
   
+  dte_truth_avg <- (DTE[1]*12 + DTE[2]*12 + DTE[3]*(max(dat_dte$month_ind) - min(dat_dte$A_time[dat_dte$ever_A==1]) - 24))/(max(dat_dte$month_ind) - min(dat_dte$A_time[dat_dte$ever_A==1]))
   
   # calculate truth for average effect in the post-period for ever adopted group -- need to exclude last treated group 
-  dte_truth_avg_ea <- (DTE[1]*sum(dat_dte_i$time_since_A>=0 & dat_dte_i$time_since_A<12 & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) + 
-                         DTE[2]*sum(dat_dte_i$time_since_A>=12 & dat_dte_i$time_since_A<24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) +
-                         DTE[3]*sum(dat_dte_i$time_since_A>=24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T))/sum(dat_dte_i$time_since_A>=0 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T)
+  # dte_truth_avg_ea <- (DTE[1]*sum(dat_dte_i$time_since_A>=0 & dat_dte_i$time_since_A<12 & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) + 
+  #                         DTE[2]*sum(dat_dte_i$time_since_A>=12 & dat_dte_i$time_since_A<24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) +
+  #                        DTE[3]*sum(dat_dte_i$time_since_A>=24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T))/sum(dat_dte_i$time_since_A>=0 & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T)
+  
+  dte_truth_avg_ea <- (DTE[1]*12 + DTE[2]*12 + DTE[3]*(max(dat_dte_i$A_time) - min(dat_dte_i$A_time) - 24))/(max(dat_dte_i$A_time) - min(dat_dte_i$A_time))
   
   print("dynamic combine")
   # combine results 
