@@ -235,7 +235,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   
   print("hetergeneous: SA")
   # estimate effects using Sun and Abraham approach 
-  m3_hte <- staggered_sa(df = dat_hte, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "simple")
+  m3_hte <- staggered_sa(df = dat_hte, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "cohort")
   
   print("hetergeneous: TWFE ever treated")
   # TWFE if you only include those who eventually get the intervention 
@@ -332,6 +332,10 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   m2_dte <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte, anticipation=0)
   m2_dte_ag <- aggte(m2_dte, type="dynamic")
   
+  print("dynamic: SA")
+  # estimate effects using Sun and Abraham approach 
+  m3_dte <- staggered_sa(df = dat_dte, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "calendar")
+  
   print("dynamic: TWFE eventually treated")
   # TWFE if you only include those who eventually get the intervention 
   dat_dte_i <- dat_dte %>% filter(ever_A==1)
@@ -369,7 +373,11 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                                  cbind(estimator = "group.time.ATT", result = m2_dte_ag$overall.att, 
                                        lb = m2_dte_ag$overall.att - 1.96*m2_dte_ag$overall.se, 
                                        ub = m2_dte_ag$overall.att + 1.96*m2_dte_ag$overall.se, 
-                                       power = as.numeric(m2_dte_ag$overall.att + 1.96*m2_dte_ag$overall.se<0)))) 
+                                       power = as.numeric(m2_dte_ag$overall.att + 1.96*m2_dte_ag$overall.se<0)), 
+                                 cbind(estimator = "staggered.SA", result = m3_dte$estimate, 
+                                       lb = m3_dte$estimate - 1.96*m3_dte$se_neyman, 
+                                       ub = m3_dte$estimate + 1.96*m3_dte$se_neyman, 
+                                       power = as.numeric(m3_dte$estimate + 1.96*m3_dte$se_neyman<0))))
   
   df_dte_avg_ea <- data.frame(rbind(cbind(estimator="truth", result=dte_truth_avg_ea, lb = NA, ub = NA, power=NA), 
                                     cbind(estimator = "TWFE.ever.adopted", result = summary(m1_dte_i)$coefficients["A", "Estimate"], 
@@ -432,6 +440,10 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   m3_dte <- fit_event_jack(outcome = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat_dte, max_time_to = 10000) %>% 
     filter(cohort=="average")
   
+  print("dynamic: SA")
+  # estimate effects using Sun and Abraham approach 
+  m4_dte <- staggered_sa(df = dat_dte, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "eventstudy", eventTime = 0:max(dat_dte$time_since_A))
+  
 
   print("yearly effect TWFE ever treated")
   # estimate TWFE model only among those who ever get the intervention 
@@ -487,6 +499,12 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   stacked$SE <- NULL
   stacked$power <- as.numeric(stacked$ub<0)
   stacked$estimator <- "stacked.regression"
+  
+  # sun and abraham
+  
+  sun_abr <- data.frame(m4_dte) %>% select(estimate, se_neyman, eventTime) %>% rename(result = estimate, SE = se_neyman, time=eventTime)
+  sun_abr <- sun_abr %>% mutate(lb = result - 1.96*SE, 
+                                ub = result + 1.96*SE) %>% mutate(power = as.numeric(ub<0), estimator = "staggered.SA") %>% select(-SE)
   
   
   # TWFE for ever adopted 
