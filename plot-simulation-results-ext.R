@@ -4,8 +4,8 @@ library(magrittr)
 library(forcats)
 library(patchwork)
 
-results_df_summary <- read_csv("./results/twfe_sim_results_extended_followup_summary_PTB_n1000_ext_05092022.csv")
-results_df_summary_compare <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_05022022.csv")
+results_df_summary <- read_csv("./results/twfe_sim_results_extended_followup_summary_PTB_n1000_ext_05272022.csv")
+results_df_summary_compare <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_05272022.csv")
 
 
 table(results_df_summary$parameter)
