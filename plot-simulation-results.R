@@ -4,26 +4,40 @@ library(magrittr)
 library(forcats)
 library(patchwork)
 
-results_df_summary <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_05242022.csv")
+results_df_summary <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_05272022.csv")
+results_old <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_05242022.csv")
 
 table(results_df_summary$parameter)
 #CTE, many DTE and HTE
 
 table(results_df_summary$method)
+# group.time.ATT group.time.ATT.ever.adopted          stacked.regression 
+# staggered.SA                        TWFE           TWFE.ever.adopted 
+ 
 
 results_df_summary %<>% 
-  mutate(method2 = fct_relevel(method, c("TWFE", "group.time.ATT", "staggered.SA", "stacked.regression",
-                                        "TWFE.ever.adopted", "group.time.ATT.ever.adopted")),
+  mutate(method2 = fct_relevel(method, c("TWFE", "group.time.ATT", "staggered.SA",
+                                         "TWFE.ever.adopted", 
+                                         "group.time.ATT.ever.adopted")),
          method3 = case_when(method == "TWFE" ~ 1, 
                              method == "group.time.ATT" ~ 2, 
                              method == "staggered.SA" ~ 3, 
                              #method == "stacked.regression" ~ 4, 
                              method ==  "TWFE.ever.adopted" ~ 4, 
-                             method == "group.time.ATT.ever.adopted" ~ 5))
+                             method == "group.time.ATT.ever.adopted" ~ 5),
+         method4 = case_when(method == "TWFE" ~ 1, 
+                             method == "group.time.ATT" ~ 2, 
+                             method == "staggered.SA" ~ 3, 
+                             method == "stacked.regression" ~ 4, 
+                             method ==  "TWFE.ever.adopted" ~ 5, 
+                             method == "group.time.ATT.ever.adopted" ~ 6),
+         )
 
 
 #check that the reorder worked:
 table(results_df_summary$method2)
+table(results_df_summary$method3)
+table(results_df_summary$method4)
 
 #start with the non-dynamic plots
 results2 <- results_df_summary %>% filter(parameter %in% c("CTE","HTE","DTE.avg"))
@@ -32,7 +46,9 @@ results2 %<>% mutate(parameter2 = fct_relevel(parameter, "CTE", "HTE", "DTE.avg"
 table(results2$parameter2)
 
 # plot results 
-facet_labels <- c(CTE = "Constant treatment effect", HTE = "Heterogeneous treatment effect", DTE.avg = "Average dynamic treatment effect")
+facet_labels <- c(CTE = "Constant treatment effect", 
+                  HTE = "Heterogeneous treatment effect", 
+                  DTE.avg = "Average dynamic treatment effect")
 
 
 p1 <- ggplot(results2, aes(x = method3, y = coverage)) + 
@@ -142,23 +158,6 @@ results_df_summary <- results_df_summary %>% mutate(pre_post = as.numeric(time_p
 
 # coverage
 results3 <- results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg"))
-# 
-# p4 <- ggplot(data = results3, aes(x=method, y=coverage)) + 
-#   geom_point(aes(shape=method, color=method, alpha=pre_post), size=5) + 
-#   labs(x="", y="95% confidence interval coverage") + 
-#   scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33", "black"), 
-#                      labels=c("group-time \nATT", "ever-treated \ngroup-time ATT",
-#                               "stacked regression",
-#                               "TWFE", "ever-treated \nTWFE")) +
-#   theme_bw(base_size = 15) +   
-#   scale_x_discrete(labels=c("group-time \nATT", "ever-treated \ngroup-time ATT",
-#                             "stacked \nregression", "TWFE", "ever-treated \nTWFE")) +
-#   theme(legend.position = "none")  + 
-#   geom_text_repel(aes(x=method, y=coverage, label = time_pt)) 
-# 
-# 
-# p4
-#ggsave(p4, file="../TWFE-simulation/results/twfe_sim_coverage2_PTB.pdf", width=10)
 
 #coverage CR attempt #1
 p41 <- ggplot(results3,

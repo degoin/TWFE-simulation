@@ -4,7 +4,7 @@ library(magrittr)
 library(forcats)
 library(patchwork)
 
-results_df_summary <- read_csv("./results/twfe_uniform_sim_results_summary_PTB_n1000_05122022.csv")
+results_df_summary <- read_csv("./results/twfe_uniform_sim_results_summary_PTB_n1000_05272022.csv")
 
 table(results_df_summary$parameter)
 #CTE, many DTE and HTE
