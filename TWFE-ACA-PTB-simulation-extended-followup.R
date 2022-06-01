@@ -630,7 +630,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   gt_ea$power <- as.numeric(gt_ea$ub <0)
   
   # combine all dynamic results
-  df_dyn <- data.frame(rbind(dte_truth, twfe, gt, stacked, twfe_ea, gt_ea))
+  df_dyn <- data.frame(rbind(dte_truth, twfe, gt, stacked, sun_abr, twfe_ea, gt_ea))
   df_dyn$type <- paste0("DTE.",df_dyn$time)
   
   # make wide so results can be stacked 
