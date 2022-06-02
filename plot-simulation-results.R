@@ -4,8 +4,8 @@ library(magrittr)
 library(forcats)
 library(patchwork)
 
-results_df_summary <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_05272022.csv")
-results_old <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_05242022.csv")
+results_df_summary <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_06012022.csv")
+results_old <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_06012022.csv")
 
 table(results_df_summary$parameter)
 #CTE, many DTE and HTE
@@ -166,10 +166,19 @@ p41 <- ggplot(results3,
   geom_point(aes(col = method2)) +
   geom_vline(xintercept = 0, linetype = 2) +
   geom_hline(yintercept = 0.95) +
-  scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33", "black"),
-                     labels=c("TWFE", "Group-time \nATT", 
-                              "Stacked regression", "Ever-treated \nTWFE",
-                              "Ever-treated \ngroup-time ATT")) +
+  scale_color_manual(values=c("#9e0142", #burgandy
+                              "#66c2a5",  #seafoam green
+                              "grey", 
+                              "#e34a33",  #fire engine red
+                              "black",
+                              "#4393c3"), #cornflower blue),
+                     labels=c("TWFE",
+                              "Group-time \nATT", 
+                              "Staggered SA",
+                              "Ever-treated \nTWFE",
+                              "Ever-treated \ngroup-time ATT", 
+                              "Stacked regression")
+                     ) +
   # labels=c("group-time \nATT", "ever-treated \ngroup-time ATT",
   #          "stacked \nregression", "TWFE", "ever-treated \nTWFE"
   labs(y = "Coverage", x = "Method") +
@@ -201,10 +210,19 @@ p51 <- ggplot(results3,
   geom_point(aes(col = method2)) +
   geom_vline(xintercept = 0, linetype = 2) +
   geom_hline(yintercept = 0) +
-  scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33", "black"), 
-                     labels=c("TWFE", "Group-time \nATT", 
-                              "Stacked regression", "Ever-treated \nTWFE",
-                              "Ever-treated \ngroup-time ATT")) +
+  scale_color_manual(values=c("#9e0142", #burgandy
+                              "#66c2a5",  #seafoam green
+                              "grey", 
+                              "#e34a33",  #fire engine red
+                              "black",
+                              "#4393c3"), #cornflower blue),
+                     labels=c("TWFE",
+                              "Group-time \nATT", 
+                              "Staggered SA",
+                              "Ever-treated \nTWFE",
+                              "Ever-treated \ngroup-time ATT", 
+                              "Stacked regression")
+  ) +
   labs(y = "Bias", x = "Method") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
@@ -231,11 +249,19 @@ p61 <- ggplot(results3,
   geom_line(aes(col = method2)) +
   geom_point(aes(col = method2)) +
   geom_vline(xintercept = 0, linetype = 2) +
-  geom_hline(yintercept = 0) +
-  scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33", "black"), 
-                     labels=c("TWFE", "Group-time \nATT", 
-                              "Stacked regression", "Ever-treated \nTWFE",
-                              "Ever-treated \ngroup-time ATT")) +
+  scale_color_manual(values=c("#9e0142", #burgandy
+                              "#66c2a5",  #seafoam green
+                              "grey", 
+                              "#e34a33",  #fire engine red
+                              "black",
+                              "#4393c3"), #cornflower blue),
+                     labels=c("TWFE",
+                              "Group-time \nATT", 
+                              "Staggered SA",
+                              "Ever-treated \nTWFE",
+                              "Ever-treated \ngroup-time ATT", 
+                              "Stacked regression")
+  ) +
   labs(y = "Mean squared error", x = "Method") +
   theme_bw(base_size = 15)  + 
   theme(legend.title=element_blank()) + 
@@ -255,10 +281,19 @@ p71 <- ggplot(results3,
   geom_point(aes(col = method2)) +
   geom_vline(xintercept = 0, linetype = 2) +
   #geom_hline(yintercept = 1) +
-  scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33", "black"), 
-                     labels=c("TWFE", "Group-time \nATT", 
-                              "Stacked regression", "Ever-treated \nTWFE",
-                              "Ever-treated \ngroup-time ATT")) +
+  scale_color_manual(values=c("#9e0142", #burgandy
+                              "#66c2a5",  #seafoam green
+                              "grey", 
+                              "#e34a33",  #fire engine red
+                              "black",
+                              "#4393c3"), #cornflower blue),
+                     labels=c("TWFE",
+                              "Group-time \nATT", 
+                              "Staggered SA",
+                              "Ever-treated \nTWFE",
+                              "Ever-treated \ngroup-time ATT", 
+                              "Stacked regression")
+  ) +
   labs(y = "Power", x = "Method") +
   theme_bw(base_size = 15) + 
   scale_y_continuous(labels = scales::percent) +
