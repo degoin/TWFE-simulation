@@ -4,8 +4,8 @@ library(magrittr)
 library(forcats)
 library(patchwork)
 
-results_df_summary <- read_csv("./results/twfe_sim_results_extended_followup_summary_PTB_n1000_ext_06012022.csv")
-results_df_summary_compare <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_06012022.csv")
+results_df_summary <-         read_csv("./results/twfe_uniform_sim_results_extended_followup_summary_PTB_n1000_06012022.csv")
+results_df_summary_compare <- read_csv("./results/twfe_sim_results_extended_followup_summary_PTB_n1000_ext_06012022.csv")
 
 
 table(results_df_summary$parameter)
@@ -74,7 +74,7 @@ p1 <- ggplot(results2, aes(x = method3, y = coverage)) +
 
 p1
 #ggsave(p1, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_coverage_PTB.pdf", width=10)
-ggsave(p1, file="../TWFE-simulation/results/twfe_sim_coverage_PTB_n1000_ext.png", 
+ggsave(p1, file="../TWFE-simulation/results/twfe_sim_coverage_PTB_n1000_uni_ext.png", 
        width=15, height = 5, device = "png")
 
 extremes2 <- results2 %>% summarise(min = min(bias), max = max(bias))
@@ -83,7 +83,7 @@ p2 <- ggplot(results2, aes(x = method3, y = bias))  +
   geom_rect(aes(xmin = 3.5, xmax = 5.5, 
                 ymin = extremes2 %>% pull(min) - 0.002, 
                 ymax = extremes2 %>% pull(max) + 0.002),
-                #ymin = -0.002, ymax = 0.005),
+            #ymin = -0.002, ymax = 0.005),
             fill = "lightgrey", alpha = 0.5) +
   geom_point(data = results2_compare, aes(col = "Previous results"), size = 5) + 
   geom_point(aes(col = "Extended follow-up"), size=5) +
@@ -102,7 +102,7 @@ p2 <- ggplot(results2, aes(x = method3, y = bias))  +
 p2
 #ggsave(p2, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_bias_PTB.pdf", width=10)
 #ggsave(p2, file="../TWFE-simulation/results/twfe_sim_bias_PTB.pdf", width=10)
-ggsave(p2, file="../TWFE-simulation/results/twfe_sim_bias_PTB_n1000_ext.png", 
+ggsave(p2, file="../TWFE-simulation/results/twfe_sim_bias_PTB_n1000_uni_ext.png", 
        width=15, height = 5, device = "png")
 
 extremes3 <- results2 %>% summarise(min = min(MSE), max = max(MSE))
@@ -129,7 +129,7 @@ p3 <- ggplot(results2, aes(x = method3, y = MSE)) +
 
 p3
 
-ggsave(p3, file="../TWFE-simulation/results/twfe_sim_mse_PTB_n1000_ext.png", 
+ggsave(p3, file="../TWFE-simulation/results/twfe_sim_mse_PTB_n1000_uni_ext.png", 
        width=15, height = 5, device = "png")
 
 extremes4 <- results2 %>% summarise(min = min(power), max = max(power))
@@ -157,19 +157,19 @@ p4 <- ggplot(results2, aes(x = method3, y = power)) +
   scale_y_continuous(labels = scales::percent) 
 
 p4
-ggsave(p4, file="../TWFE-simulation/results/twfe_sim_power_PTB_n1000_ext.png", 
+ggsave(p4, file="../TWFE-simulation/results/twfe_sim_power_PTB_n1000_uni_ext.png", 
        width=15, height = 5, device = "png")
 
 all_1 <- p1 + p2 + p3 + p4 + plot_layout(nrow = 4)
 all_1
-ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all_PTB_n1000_ext.png", 
+ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all_PTB_n1000_uni_ext.png", 
        width=15, height = 20, device = "png")
 
 results_df_summary %<>% 
   mutate(ever.adopted.est = case_when(
     method %in% c("TWFE.ever.adopted", "group.time.ATT.ever.adopted") ~ "Ever-treated only", 
     !(method %in% c("TWFE.ever.adopted", "group.time.ATT.ever.adopted")) ~ "All states")
-    )
+  )
 
 # dynamic effects 
 results_df_summary <- results_df_summary %>% mutate(time_pt = substr(parameter, 4, 8))
@@ -209,11 +209,11 @@ results3 %<>% mutate(method2_f = case_when(method2 == "TWFE" ~ "TWFE",
                                               "Ever-treated TWFE", "Ever-treated group-time ATT")))
 
 results3_compare %<>% mutate(method2_f = case_when(method2 == "TWFE" ~ "TWFE",
-                                           method2 == "group.time.ATT" ~ "Group-time ATT",
-                                           method2 == "staggered.SA" ~ "Staggered SA",
-                                           method2 == "stacked.regression" ~ "Stacked regression",
-                                           method2 == "TWFE.ever.adopted" ~ "Ever-treated TWFE",
-                                           method2 == "group.time.ATT.ever.adopted" ~ "Ever-treated group-time ATT")) %>%
+                                                   method2 == "group.time.ATT" ~ "Group-time ATT",
+                                                   method2 == "staggered.SA" ~ "Staggered SA",
+                                                   method2 == "stacked.regression" ~ "Stacked regression",
+                                                   method2 == "TWFE.ever.adopted" ~ "Ever-treated TWFE",
+                                                   method2 == "group.time.ATT.ever.adopted" ~ "Ever-treated group-time ATT")) %>%
   mutate(method2_f = fct_relevel(method2_f, c("TWFE", "Group-time ATT", "Staggered SA", "Stacked regression",
                                               "Ever-treated TWFE", "Ever-treated group-time ATT")))
 
@@ -223,19 +223,21 @@ p41 <- ggplot(results3,
               aes(x = time_pt, y = coverage)) +
   geom_line(data = results3_compare, aes(col = "Previous results")) +
   geom_line(aes(col = "Extended time")) +
+  
+  #geom_point(aes(col = method2)) +
   geom_vline(xintercept = 0, linetype = 2) +
   geom_hline(yintercept = 0.95) +
-  labs(y = "Coverage", x = "Method") +
+labs(y = "Coverage", x = "Method") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
   scale_y_continuous(labels = scales::percent) +
   scale_alpha_manual(values = c(1, 0.5)) + 
   facet_wrap(~method2, nrow = 1)
-  #facet_wrap(~ever.adopted.est)
+#facet_wrap(~ever.adopted.est)
 
 p41
 #ggsave(p41, file="../TWFE-simulation/results/twfe_sim_coverage3_PTB.pdf", width=10)
-ggsave(p41, file="../TWFE-simulation/results/dyn_coverage_n1000_ext.png", 
+ggsave(p41, file="../TWFE-simulation/results/dyn_coverage_n1000_uni_ext.png", 
        width=20,height = 4, device = png)
 
 p51 <- ggplot(results3,
@@ -252,12 +254,12 @@ p51 <- ggplot(results3,
 
 p51
 #ggsave(p51, file="../TWFE-simulation/results/twfe_sim_bias3_PTB.pdf", width=10)
-ggsave(p51, file="../TWFE-simulation/results/dyn_bias_n1000_ext.png", 
+ggsave(p51, file="../TWFE-simulation/results/dyn_bias_n1000_uni_ext.png", 
        width=20,height = 4, device = png)
 
 p61 <- ggplot(results3,
               aes(x = time_pt, y = MSE)) +
-  geom_line(data = results3_compare, aes(col = "Previous results")) +
+  geom_line(data = results3_compare, aes(col =  "Previous results")) +
   geom_line(aes(col = "Extended time")) +
   geom_vline(xintercept = 0, linetype = 2) +
   geom_hline(yintercept = 0) +
@@ -270,7 +272,7 @@ p61 <- ggplot(results3,
 p61
 #ggsave(p61, file="../TWFE-simulation/results/twfe_sim_mse3_PTB.pdf", width=10)
 
-ggsave(p61, file="../TWFE-simulation/results/dyn_mse_n1000_ext.png", 
+ggsave(p61, file="../TWFE-simulation/results/dyn_mse_n1000_uni_ext.png", 
        width=20,height = 4, device = png)
 
 #power 
@@ -280,19 +282,20 @@ p71 <- ggplot(results3,
   geom_line(data = results3_compare, aes(col = "Previous results")) +
   geom_line(aes(col = "Extended time")) +
   geom_vline(xintercept = 0, linetype = 2) +
+  #geom_hline(yintercept = 1) +
   labs(y = "Power", x = "Method") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
   scale_y_continuous(labels = scales::percent) +
   scale_alpha_manual(values = c(1, 0.5)) + 
-  facet_wrap(~ method2, nrow = 1)
+  facet_wrap(~method2, nrow = 1)
 
 p71
 
-ggsave(p71, file="../TWFE-simulation/results/dyn_power_n1000_ext.png", 
+ggsave(p71, file="../TWFE-simulation/results/dyn_power_n1000_uni_ext.png", 
        width=20, height = 4, device = png)
 
 dyn_all <- p41 + p51 + p61 + p71 + plot_layout(nrow = 4, guides = "collect")
 
-ggsave(dyn_all, file="../TWFE-simulation/results/dyn_all_n1000_ext.png", 
+ggsave(dyn_all, file="../TWFE-simulation/results/dyn_all_n1000_uni_ext.png", 
        width=20, height = 20, device = png)
