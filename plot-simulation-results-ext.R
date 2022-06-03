@@ -221,25 +221,26 @@ results3_compare %<>% mutate(method2_f = case_when(method2 == "TWFE" ~ "TWFE",
 
 p41 <- ggplot(results3,
               aes(x = time_pt, y = coverage)) +
-  geom_line(data = results3_compare, aes(col = method2, alpha = "Previous results")) +
-  geom_line(aes(col = method2, alpha = "Extended time")) +
+  geom_line(data = results3_compare, aes(col = "Previous results")) +
+  geom_line(aes(col = "Extended time")) +
+  
   #geom_point(aes(col = method2)) +
   geom_vline(xintercept = 0, linetype = 2) +
   geom_hline(yintercept = 0.95) +
-  scale_color_manual(values=c("#9e0142", #burgandy
-                              "#66c2a5",  #seafoam green
-                              "grey",
-                              "#4393c3", #cornflower blue)
-                              "#e34a33",  #fire engine red
-                              "black"
-                              ),
-                     labels=c("TWFE",
-                              "Group-time \nATT",
-                              "Staggered SA",
-                              "Stacked regression",
-                              "Ever-treated \nTWFE",
-                              "Ever-treated \ngroup-time ATT"
-                              )) +
+  # scale_color_manual(values=c("#9e0142", #burgandy
+  #                             "#66c2a5",  #seafoam green
+  #                             "grey",
+  #                             "#4393c3", #cornflower blue)
+  #                             "#e34a33",  #fire engine red
+  #                             "black"
+  #                             ),
+  #                    labels=c("TWFE",
+  #                             "Group-time \nATT",
+  #                             "Staggered SA",
+  #                             "Stacked regression",
+  #                             "Ever-treated \nTWFE",
+  #                             "Ever-treated \ngroup-time ATT"
+  #                             )) +
   labs(y = "Coverage", x = "Method") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
@@ -255,24 +256,10 @@ ggsave(p41, file="../TWFE-simulation/results/dyn_coverage_n1000_ext.png",
 
 p51 <- ggplot(results3,
               aes(x = time_pt, y = bias)) +
-  geom_line(data = results3_compare, aes(col = method2, alpha = "Previous results")) +
-  geom_line(aes(col = method2, alpha = "Extended time")) +
+  geom_line(data = results3_compare, aes(col = "Previous results")) +
+  geom_line(aes(col = "Extended time")) +
   geom_vline(xintercept = 0, linetype = 2) +
   geom_hline(yintercept = 0) +
-  scale_color_manual(values=c("#9e0142", #burgandy
-                              "#66c2a5",  #seafoam green
-                              "grey",
-                              "#4393c3", #cornflower blue)
-                              "#e34a33",  #fire engine red
-                              "black"
-  ),
-  labels=c("TWFE",
-           "Group-time \nATT",
-           "Staggered SA",
-           "Stacked regression",
-           "Ever-treated \nTWFE",
-           "Ever-treated \ngroup-time ATT"
-  )) +
   labs(y = "Bias", x = "Method") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
