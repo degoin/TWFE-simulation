@@ -4,8 +4,8 @@ library(magrittr)
 library(forcats)
 library(patchwork)
 
-results_df_summary <- read_csv("./results/twfe_sim_results_extended_followup_summary_PTB_n1000_ext_05272022.csv")
-results_df_summary_compare <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_05272022.csv")
+results_df_summary <- read_csv("./results/twfe_sim_results_extended_followup_summary_PTB_n1000_ext_06012022.csv")
+results_df_summary_compare <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_06012022.csv")
 
 
 table(results_df_summary$parameter)
@@ -201,41 +201,51 @@ results3_compare <- results_df_summary_compare %>% filter(!parameter %in% c("CTE
 
 results3 %<>% mutate(method2_f = case_when(method2 == "TWFE" ~ "TWFE",
                                            method2 == "group.time.ATT" ~ "Group-time ATT",
-                                           method2 == "stacked.regression" ~ "Staggered SA",
+                                           method2 == "staggered.SA" ~ "Staggered SA",
+                                           method2 == "stacked.regression" ~ "Stacked regression",
                                            method2 == "TWFE.ever.adopted" ~ "Ever-treated TWFE",
                                            method2 == "group.time.ATT.ever.adopted" ~ "Ever-treated group-time ATT")) %>%
-  mutate(method2_f = fct_relevel(method2_f, c("TWFE", "Group-time ATT", "Staggered SA",
+  mutate(method2_f = fct_relevel(method2_f, c("TWFE", "Group-time ATT", "Staggered SA", "Stacked regression",
                                               "Ever-treated TWFE", "Ever-treated group-time ATT")))
 
 results3_compare %<>% mutate(method2_f = case_when(method2 == "TWFE" ~ "TWFE",
-                                                   method2 == "group.time.ATT" ~ "Group-time ATT",
-                                                   method2 == "stacked.regression" ~ "Staggered SA",
-                                                   method2 == "TWFE.ever.adopted" ~ "Ever-treated TWFE",
-                                                   method2 == "group.time.ATT.ever.adopted" ~ "Ever-treated group-time ATT")) %>%
-  mutate(method2_f = fct_relevel(method2_f, c("TWFE", "Group-time ATT", "Staggered SA",
+                                           method2 == "group.time.ATT" ~ "Group-time ATT",
+                                           method2 == "staggered.SA" ~ "Staggered SA",
+                                           method2 == "stacked.regression" ~ "Stacked regression",
+                                           method2 == "TWFE.ever.adopted" ~ "Ever-treated TWFE",
+                                           method2 == "group.time.ATT.ever.adopted" ~ "Ever-treated group-time ATT")) %>%
+  mutate(method2_f = fct_relevel(method2_f, c("TWFE", "Group-time ATT", "Staggered SA", "Stacked regression",
                                               "Ever-treated TWFE", "Ever-treated group-time ATT")))
 
 
 
 p41 <- ggplot(results3,
               aes(x = time_pt, y = coverage)) +
-  geom_line(data = results3_compare, aes(col = method2_f, alpha = "Previous results")) +
-  geom_line(aes(col = method2_f, alpha = "Extended time")) +
+  geom_line(data = results3_compare, aes(col = method2, alpha = "Previous results")) +
+  geom_line(aes(col = method2, alpha = "Extended time")) +
   #geom_point(aes(col = method2)) +
   geom_vline(xintercept = 0, linetype = 2) +
   geom_hline(yintercept = 0.95) +
-  scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33", "black"),
-                     labels=c("TWFE", "Group-time \nATT", 
-                              "Stacked regression", "Ever-treated \nTWFE",
-                              "Ever-treated \ngroup-time ATT")) +
-  # labels=c("group-time \nATT", "ever-treated \ngroup-time ATT",
-  #          "stacked \nregression", "TWFE", "ever-treated \nTWFE"
+  scale_color_manual(values=c("#9e0142", #burgandy
+                              "#66c2a5",  #seafoam green
+                              "grey",
+                              "#4393c3", #cornflower blue)
+                              "#e34a33",  #fire engine red
+                              "black"
+                              ),
+                     labels=c("TWFE",
+                              "Group-time \nATT",
+                              "Staggered SA",
+                              "Stacked regression",
+                              "Ever-treated \nTWFE",
+                              "Ever-treated \ngroup-time ATT"
+                              )) +
   labs(y = "Coverage", x = "Method") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
   scale_y_continuous(labels = scales::percent) +
   scale_alpha_manual(values = c(1, 0.5)) + 
-  facet_wrap(~method2_f, nrow = 1)
+  facet_wrap(~method2, nrow = 1)
   #facet_wrap(~ever.adopted.est)
 
 p41
@@ -245,20 +255,29 @@ ggsave(p41, file="../TWFE-simulation/results/dyn_coverage_n1000_ext.png",
 
 p51 <- ggplot(results3,
               aes(x = time_pt, y = bias)) +
-  geom_line(data = results3_compare, aes(col = method2_f, alpha = "Previous results")) +
-  geom_line(aes(col = method2_f, alpha = "Extended time")) +
+  geom_line(data = results3_compare, aes(col = method2, alpha = "Previous results")) +
+  geom_line(aes(col = method2, alpha = "Extended time")) +
   geom_vline(xintercept = 0, linetype = 2) +
   geom_hline(yintercept = 0) +
-  scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33", "black"),
-                     guide = "none") + 
-  # labels=c("TWFE", "Group-time \nATT", 
-  #          "Stacked regression", "Ever-treated \nTWFE",
-  #          "Ever-treated \ngroup-time ATT")) +
+  scale_color_manual(values=c("#9e0142", #burgandy
+                              "#66c2a5",  #seafoam green
+                              "grey",
+                              "#4393c3", #cornflower blue)
+                              "#e34a33",  #fire engine red
+                              "black"
+  ),
+  labels=c("TWFE",
+           "Group-time \nATT",
+           "Staggered SA",
+           "Stacked regression",
+           "Ever-treated \nTWFE",
+           "Ever-treated \ngroup-time ATT"
+  )) +
   labs(y = "Bias", x = "Method") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
   scale_alpha_manual(values = c(1, 0.5)) + 
-  facet_wrap(~method2_f, nrow = 1)
+  facet_wrap(~method2, nrow = 1)
 
 p51
 #ggsave(p51, file="../TWFE-simulation/results/twfe_sim_bias3_PTB.pdf", width=10)
@@ -267,19 +286,29 @@ ggsave(p51, file="../TWFE-simulation/results/dyn_bias_n1000_ext.png",
 
 p61 <- ggplot(results3,
               aes(x = time_pt, y = MSE)) +
-  geom_line(data = results3_compare, aes(col = method2_f, alpha = "Previous results")) +
-  geom_line(aes(col = method2_f, alpha = "Extended time")) +
+  geom_line(data = results3_compare, aes(col = method2, alpha = "Previous results")) +
+  geom_line(aes(col = method2, alpha = "Extended time")) +
   geom_vline(xintercept = 0, linetype = 2) +
   geom_hline(yintercept = 0) +
-  scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33", "black"), 
-                     labels=c("TWFE", "Group-time \nATT", 
-                              "Stacked regression", "Ever-treated \nTWFE",
-                              "Ever-treated \ngroup-time ATT")) +
+  scale_color_manual(values=c("#9e0142", #burgandy
+                              "#66c2a5",  #seafoam green
+                              "grey",
+                              "#4393c3", #cornflower blue)
+                              "#e34a33",  #fire engine red
+                              "black"
+  ),
+  labels=c("TWFE",
+           "Group-time \nATT",
+           "Staggered SA",
+           "Stacked regression",
+           "Ever-treated \nTWFE",
+           "Ever-treated \ngroup-time ATT"
+  )) +
   labs(y = "Mean squared error", x = "Method") +
   theme_bw(base_size = 15)  + 
   theme(legend.title=element_blank()) + 
   scale_alpha_manual(values = c(1, 0.5)) + 
-  facet_wrap(~method2_f, nrow = 1)
+  facet_wrap(~method2, nrow = 1)
 
 p61
 #ggsave(p61, file="../TWFE-simulation/results/twfe_sim_mse3_PTB.pdf", width=10)
@@ -291,20 +320,30 @@ ggsave(p61, file="../TWFE-simulation/results/dyn_mse_n1000_ext.png",
 
 p71 <- ggplot(results3,
               aes(x = time_pt, y = power)) +
-  geom_line(data = results3_compare, aes(col = method2_f, alpha = "Previous results")) +
-  geom_line(aes(col = method2_f, alpha = "Extended time")) +
+  geom_line(data = results3_compare, aes(col = method2, alpha = "Previous results")) +
+  geom_line(aes(col = method2, alpha = "Extended time")) +
   geom_vline(xintercept = 0, linetype = 2) +
   #geom_hline(yintercept = 1) +
-  scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33", "black"), 
-                     labels=c("TWFE", "Group-time \nATT", 
-                              "Stacked regression", "Ever-treated \nTWFE",
-                              "Ever-treated \ngroup-time ATT")) +
+  scale_color_manual(values=c("#9e0142", #burgandy
+                              "#66c2a5",  #seafoam green
+                              "grey",
+                              "#4393c3", #cornflower blue)
+                              "#e34a33",  #fire engine red
+                              "black"
+  ),
+  labels=c("TWFE",
+           "Group-time \nATT",
+           "Staggered SA",
+           "Stacked regression",
+           "Ever-treated \nTWFE",
+           "Ever-treated \ngroup-time ATT"
+  )) +
   labs(y = "Power", x = "Method") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
   scale_y_continuous(labels = scales::percent) +
   scale_alpha_manual(values = c(1, 0.5)) + 
-  facet_wrap(~method2_f, nrow = 1)
+  facet_wrap(~method2, nrow = 1)
 
 p71
 
@@ -313,5 +352,5 @@ ggsave(p71, file="../TWFE-simulation/results/dyn_power_n1000_ext.png",
 
 dyn_all <- p41 + p51 + p61 + p71 + plot_layout(nrow = 4, guides = "collect")
 
-ggsave(dyn_all, file="../TWFE-simulation/results/dyn_all_n1000_all.png", 
+ggsave(dyn_all, file="../TWFE-simulation/results/dyn_all_n1000_ext.png", 
        width=20, height = 20, device = png)
