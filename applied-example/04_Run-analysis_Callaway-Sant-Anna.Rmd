@@ -1,0 +1,636 @@
+---
+title: "Callaway & Sant'Anna and Sun & Abraham Estimates"
+output: html_document
+---
+
+**Overview**
+
+In this file we run the Callaway & Sant'Anna and Sun & Abraham approaches. We also run the bacon decomposition.
+
+**Inputs:**
+
+Note that the restricted births data is not available publicly and so is not uploaded to GitHub.
+./restricted-data/births_all: this is the dataset of individual birth records merged to policy data
+./ACA-PTB/output-data/results.csv: These are the results from the TWFE specifications
+
+```{r load-libraries, echo=FALSE, message=F}
+# set path
+riddellPath <- c( "/data/riddell//R/x86_64-pc-linux-gnu-library/4.1/" , .libPaths() )
+.libPaths(riddellPath)
+
+# load libraries
+library(magrittr)
+library(tidyverse)
+library(tibble)
+library(readxl)
+library(readr)
+library(data.table)
+library(ggrepel)
+library(sandwich)
+library(tigris)
+library(did)
+library(staggered)
+library(bacondecomp)
+library(TwoWayFEWeights)
+```
+
+```{r}
+results4 <- read_csv(file = "/home/corinneriddell/ACA-PTB/output-data/results.csv")
+```
+
+```{r, echo=FALSE, message=F}
+all_years2 <- fread("./restricted-data/births_all")
+```
+
+```{r, echo=FALSE, message=F}
+#aggregated the individual level data into state-months
+all_years_agg <- all_years2 %>% 
+  group_by(state_r, month_index) %>% 
+  summarize(ptb_prop = mean(CR_ptb), 
+            DOB_MM = first(DOB_MM), 
+            DOB_YY = first(DOB_YY), 
+            post_policy = first(post_policy), 
+            ever_treated = first(ever_treated), 
+            Expansion_Date = first(Expansion_Date)) %>%
+  arrange(state_r, month_index)
+```
+
+```{r, echo=FALSE, message=F}
+# add variable called treated_group for use in the att_ge() function that indicates the month index of 
+# the time of the policy change. It is equal to 0 for states that did not change
+all_years_agg <- all_years_agg %>% 
+  mutate(treated_group = case_when(Expansion_Date == as.Date("2014-01-01") ~ 37, #16 states (36th month + 1)
+                                   Expansion_Date == as.Date("2015-01-01") ~ 49, #PA only
+                                   Expansion_Date == as.Date("2015-09-01") ~ 57, #AK only
+                                   Expansion_Date == as.Date("2016-07-01") ~ 67, #LA only
+                                   Expansion_Date == as.Date("2019-01-01") ~ 0,
+                                   Expansion_Date == as.Date("2020-01-01") ~ 0, #late expanders are considered not treated for this analysis since they expanded after 2017
+                                   is.na(Expansion_Date) ~ 0) #17 states are not treated (across these last two conditions)
+  )
+
+# add another variable called treated_group2 where the never-treated states have a value of Inf rather than 0
+# for use in the Roth and Sant'Anna `staggered()` function
+all_years_agg$treated_group2 <- all_years_agg$treated_group
+all_years_agg$treated_group2[all_years_agg$treated_group == 0] <- Inf
+table(all_years_agg$treated_group, all_years_agg$treated_group2, useNA = "always")
+
+#check the coding
+# table(all_years_agg$Expansion_Date)
+# table(all_years_agg$state_r, all_years_agg$Expansion_Date, useNA = "always")
+# 
+# table(all_years_agg$treated_group, useNA = "always")
+
+#all_years_agg %>% filter(is.na(treated_group)) %>% View()
+```
+
+```{r}
+# add numeric state codes for use in the later functions
+
+fips <- fips_codes %>% select(state, state_code, state_name) %>% distinct() %>% filter(state_code < 60) %>% rename(state_r = state)
+
+all_years_agg <- merge(all_years_agg, fips, by = "state_r")
+
+all_years_agg <- all_years_agg %>%  mutate(state_num = as.numeric(state_code))
+```
+
+
+```{r}
+#In a new dataset, take away the states that make things unbalanced (balance = the same months of data for each state in the dataset)
+#some of the functions require balanced data so we make another dataset that excludes states that lead to imbalance
+all_years_agg2 <- all_years_agg %>% filter(! (state_r %in% c("AK", "MA", "MN", "MS", "VA")))
+
+table(all_years_agg2$state_r, all_years_agg2$month_index) #balanced panel
+```
+
+### Callaway and Sant'Anna
+
+Ref = never treated
+Imbalance is permitted
+
+```{r}
+# estimate effects using group-time ATT
+
+m2 <- att_gt(yname = "ptb_prop", 
+             tname = "month_index", 
+             idname = "state_num", 
+             gname = "treated_group", 
+             allow_unbalanced_panel = TRUE,
+             control_group = "nevertreated",
+             data = all_years_agg, 
+             anticipation = 0)
+
+m2_ag <- aggte(m2, type="simple", na.rm = T)
+
+m2_ag
+
+m2_ag$overall.att
+m2_ag$overall.se
+
+lb = m2_ag$overall.att - 1.96*m2_ag$overall.se 
+ub = m2_ag$overall.att + 1.96*m2_ag$overall.se
+
+round(c(m2_ag$overall.att, lb, ub)*100, 2)
+
+#add these estimates to the dataset with the TWFE estimates
+results5 <- data.frame(estimate = m2_ag$overall.att,
+                       lb = lb, 
+                       ub = ub, 
+                       method = "Callaway Sant'Anna unbalanced, ref = never treated"
+                       )
+
+results5 <- results5 %>% mutate(estimate2 = estimate*100, 
+                     lb2 = lb*100,
+                     ub2 = ub*100,
+                     description = paste0(round(estimate2, 2), " (", round(lb2, 2), ", ", round(ub2, 2), ")"))
+
+results5 <- bind_rows(results5, results4)
+```
+
+Below we change the reference group:
+
+Ref = not yet treated 
+Imbalance is allowed
+
+```{r}
+m3 <- att_gt(yname = "ptb_prop", 
+             tname = "month_index", 
+             idname = "state_num", 
+             gname = "treated_group", 
+             allow_unbalanced_panel = TRUE,
+             control_group = "notyettreated",
+             data = all_years_agg, 
+             anticipation = 0)
+
+m3_ag <- aggte(m3, type="simple", na.rm = T)
+
+m3_ag
+
+m3_ag$overall.att
+m3_ag$overall.se
+
+lb = m3_ag$overall.att - 1.96*m3_ag$overall.se 
+ub = m3_ag$overall.att + 1.96*m3_ag$overall.se
+
+round(c(m3_ag$overall.att, lb, ub)*100, 2)
+
+results6 <- data.frame(estimate = m3_ag$overall.att,
+                       lb = lb, 
+                       ub = ub, 
+                       method = "Callaway Sant'Anna unbalanced, ref = not yet treated"
+                       )
+
+results6 <- results6 %>% mutate(estimate2 = estimate*100, 
+                     lb2 = lb*100,
+                     ub2 = ub*100,
+                     description = paste0(round(estimate2, 2), " (", round(lb2, 2), ", ", round(ub2, 2), ")"))
+
+results6 <- bind_rows(results6, results5)
+```
+
+The warning "Warning in pre_process_did(yname = yname, tname = tname, idname = idname,  :
+  Be aware that there are some small groups in your dataset.
+  Check groups: 49,57,67."
+  
+is because Pennsylvania, Alaska, and Louisiana introduced ACA expansion at t=49, 57, and 67 at time points when no other states introduced the change. So estimating the effect for these groups individually will be imprecise.
+
+The other warnings "No units in group 57 in time period X" warn that Alaska was introduced to the panel late because of inclusion criteria.
+
+Here we re-run the model but on `all_years_agg2`, the dataset we created that is balanced.
+
+```{r}
+m2_2 <- att_gt(yname = "ptb_prop", 
+             tname = "month_index", 
+             idname = "state_num", 
+             gname = "treated_group", 
+             allow_unbalanced_panel = FALSE,
+             control_group = "nevertreated",
+             data = all_years_agg2, 
+             anticipation = 0)
+
+m2_ag_2 <- aggte(m2_2, type="simple")
+
+m2_ag_2
+
+m2_by_group_2 <- aggte(m2_2, type = "group")
+summary(m2_by_group_2)
+
+m2_ag_2$overall.att
+m2_ag_2$overall.se
+
+lb_2 = m2_ag_2$overall.att - 1.96*m2_ag_2$overall.se 
+ub_2 = m2_ag_2$overall.att + 1.96*m2_ag_2$overall.se
+
+round(c(m2_ag_2$overall.att, lb_2, ub_2)*100, 2)
+
+results7 <- data.frame(estimate = m2_ag_2$overall.att,
+                       lb = lb_2, 
+                       ub = ub_2, 
+                       method = "Callaway Sant'Anna manual balance, ref = never treated"
+                       )
+
+results7 <- results7 %>% mutate(estimate2 = estimate*100, 
+                     lb2 = lb*100,
+                     ub2 = ub*100,
+                     description = paste0(round(estimate2, 2), " (", round(lb2, 2), ", ", round(ub2, 2), ")"))
+
+results7 <- bind_rows(results7, results6)
+```
+
+Here we rerun the model but restricted to states that implementing the policy change (ever-treated only)
+
+```{r}
+# estimate effects using group-time ATT for only those who are not yet treated
+m2_ea <- att_gt(yname="ptb_prop", 
+                tname="month_index", 
+                idname="state_num",
+                gname="treated_group",
+                allow_unbalanced_panel = FALSE,
+                control_group = "notyettreated",
+                data=all_years_agg %>% filter(ever_treated == T), 
+                anticipation=0)
+
+m2_ea_ag <- aggte(m2_ea, type="simple")
+
+m2_ea_ag$overall.att
+m2_ea_ag$overall.se
+
+lb = m2_ea_ag$overall.att - 1.96*m2_ea_ag$overall.se 
+ub = m2_ea_ag$overall.att + 1.96*m2_ea_ag$overall.se
+round(c(m2_ea_ag$overall.att, lb, ub)*100, 2)
+
+results8 <- data.frame(estimate = m2_ea_ag$overall.att,
+                       lb = lb, 
+                       ub = ub, 
+                       method = "Callaway Sant'Anna ever-treated only, ref = notyettreated"
+                       )
+
+results8 <- results8 %>% mutate(estimate2 = estimate*100, 
+                     lb2 = lb*100,
+                     ub2 = ub*100,
+                     description = paste0(round(estimate2, 2), " (", round(lb2, 2), ", ", round(ub2, 2), ")"))
+
+results8 <- bind_rows(results8, results7)
+```
+
+### Sun and Abraham method estimate of the simple weighted average 
+
+-This method requires that the data be balanced, and drops states without balance
+-This method also drops states with a single cross sectional unit, that is treatment cohorts g = 49 and 67 (PA and LA) 
+
+```{r}
+mod7 <- staggered_sa(df = all_years_agg,
+                  i = "state_num",
+                  t = "month_index",
+                  g = "treated_group2",
+                  y = "ptb_prop", 
+                  estimand = "simple")
+mod7
+
+mod7_event_study2 <- staggered_sa(df = all_years_agg,
+                  i = "state_num",
+                  t = "month_index",
+                  g = "treated_group2",
+                  y = "ptb_prop", 
+                  eventTime = -30:35,
+                  estimand = "eventstudy")
+mod7_event_study2 %>% View()
+
+mod7_event_study2 %<>% mutate(lb = estimate - 1.96*se, ub = estimate + 1.96*se)
+
+ggplot(mod7_event_study2, aes(x = eventTime, y = estimate)) +
+  geom_point() + 
+  geom_linerange(aes(ymin = lb, ymax = ub)) + theme_bw() + geom_hline(aes(yintercept = 0))
+
+round(c(mod7$estimate, mod7$estimate - 1.96*mod7$se, mod7$estimate + 1.96*mod7$se)*100, 2)
+round(c(mod7$estimate, mod7$estimate - 1.96*mod7$se_neyman, mod7$estimate + 1.96*mod7$se_neyman)*100, 2)
+
+results9 <- data.frame(estimate = mod7$estimate,
+                       lb = mod7$estimate - 1.96*mod7$se_neyman, 
+                       ub = mod7$estimate + 1.96*mod7$se_neyman, 
+                       method = "Sun and Abraham, balanced, no small groups"
+                       )
+
+results9 <- results9 %>% mutate(estimate2 = estimate*100, 
+                     lb2 = lb*100,
+                     ub2 = ub*100,
+                     description = paste0(round(estimate2, 2), " (", round(lb2, 2), ", ", round(ub2, 2), ")"))
+
+results9 <- bind_rows(results9, results8)
+```
+
+Callaway Sant'Anna manual balance, ref = never treated, no small groups (to make similar to Sun and Abraham for comparison)
+
+```{r}
+mod8 <- att_gt(yname = "ptb_prop", 
+             tname = "month_index", 
+             idname = "state_num", 
+             gname = "treated_group", 
+             allow_unbalanced_panel = FALSE,
+             control_group = "nevertreated",
+             data = all_years_agg2 %>% filter(! (state_r %in% c("LA", "PA"))), 
+             anticipation = 0)
+
+mod8_aggte <- aggte(mod8, type="simple")
+
+mod8_aggte$overall.att
+mod8_aggte$overall.se
+
+lb_2 = mod8_aggte$overall.att - 1.96*mod8_aggte$overall.se 
+ub_2 = mod8_aggte$overall.att + 1.96*mod8_aggte$overall.se
+
+round(c(mod8_aggte$overall.att, lb_2, ub_2)*100, 2)
+
+results10 <- data.frame(estimate = m2_ag_2$overall.att,
+                       lb = lb_2, 
+                       ub = ub_2, 
+                       method = "Callaway Sant'Anna manual balance, no small groups, ref = never treated"
+                       )
+
+results10 <- results10 %>% mutate(estimate2 = estimate*100, 
+                     lb2 = lb*100,
+                     ub2 = ub*100,
+                     description = paste0(round(estimate2, 2), " (", round(lb2, 2), ", ", round(ub2, 2), ")"))
+
+results10 <- bind_rows(results10, results9)
+```
+
+Re-run main analysis but restricted to no small groups and make it balanced (to make similar and comparable to Sun and Abraham)
+
+```{r}
+#take away the states that make things unbalanced
+all_years_agg3 <- all_years_agg2 %>% filter(! (state_r %in% c("PA", "LA")))
+
+mod6_balanced_restricted <- glm(ptb_prop ~ post_policy + state_r + as.factor(month_index), data = all_years_agg3, family = "gaussian") 
+#Gaussian to keep things additive
+summary(mod6_balanced_restricted)
+
+#how does this estimate compare to model 2?
+
+#robust SE
+system.time(m6_var <- vcovHC(mod6_balanced_restricted, type="HC3"))
+
+lb2 = summary(mod6_balanced_restricted)$coefficients["post_policy", "Estimate"] - 1.96*sqrt(m6_var["post_policy","post_policy"]) 
+ub2 = summary(mod6_balanced_restricted)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m6_var["post_policy","post_policy"])
+c(lb2, ub2)
+
+
+results11 <- data.frame(estimate = summary(mod6_balanced_restricted)$coefficients["post_policy", "Estimate"], 
+           lb = lb2, 
+           ub = ub2, 
+           method = "state-level TWFE LPM balanced restricted")
+
+results11 <- results11 %>% mutate(estimate2 = estimate*100, 
+                     lb2 = lb*100,
+                     ub2 = ub*100,
+                     description = paste0(round(estimate2, 2), " (", round(lb2, 2), ", ", round(ub2, 2), ")"))
+
+results11 <- bind_rows(results11, results10)
+
+```
+
+Investigate the difference between CS and Bacon for Group 37:
+
+```{r}
+m2_by_group <- aggte(m2, type = "group")
+summary(m2_by_group)
+#-0.0002 for 37
+#-0.0039 for 49
+#-0.0040 for 67 
+
+m2_by_time <- aggte(m2, type = "dynamic", na.rm = T)
+summary(m2_by_time)
+ggdid(m2_by_time) + geom_hline(yintercept = 0)
+
+point_ests <- m2_by_time$att.egt
+lbs <- point_ests - 2.95*m2_by_time$se.egt
+ubs <- point_ests + 2.95*m2_by_time$se.egt
+event_time <- m2_by_time$egt
+
+#not yet treated
+m3_by_time <- aggte(m3, type = "dynamic", na.rm = T)
+summary(m3_by_time)
+ggdid(m3_by_time) + geom_hline(yintercept = 0)
+
+point_ests_notyet <- m3_by_time$att.egt
+lbs_notyet <- point_ests_notyet - 2.95*m3_by_time$se.egt
+ubs_notyet <- point_ests_notyet + 2.95*m3_by_time$se.egt
+
+
+cs_dynamic <- data.frame(event_time, 
+                         point_ests, lbs, ubs,
+                         point_ests_notyet, lbs_notyet, ubs_notyet
+                         )
+
+ggplot(cs_dynamic, aes(x = time, y = point_ests)) + geom_point(aes(col = time >= 0)) + 
+  geom_hline(yintercept = 0, lty = 2) + 
+  geom_linerange(aes(ymin = lbs, ymax = ubs, col = time >= 0)) + 
+  labs(y = "Estimate", x = "Event time") + 
+  theme_bw()
+```
+
+```{r}
+# results6 <- results5 %>% mutate(method2 = factor(method, 
+#                                                  levels = c("individual-level TWFE LPM", "state-level TWFE LPM",
+#                                                             "state-level TWFE ever-treated", "Callaway Sant'Anna",
+#                                                             "Sun and Abraham")))
+
+results11$ever_treated <- 0
+results11$ever_treated[results11$method == "state-level TWFE ever-treated" | results11$method ==  "Callaway Sant'Anna ever-treated only, ref = notyettreated"] <- 1
+
+ggplot(results11 %>% filter(ever_treated == 0), aes(y = method, x = estimate2)) + geom_point() + 
+  geom_vline(xintercept = 0, lty = 2) + 
+  geom_text(aes(label = description), nudge_y = 0.1) + 
+  geom_linerange(aes(xmin = lb2, xmax = ub2)) + 
+  labs(y = "", x = "Risk difference (percentage points)") + 
+  scale_y_discrete(limits=rev)
+```
+
+Figure 1 
+
+```{r}
+
+results12 <- results11 %>% filter(method %in% c("state-level TWFE LPM", 
+                                          "Callaway Sant'Anna unbalanced, ref = never treated",
+                                          "Sun and Abraham, balanced, no small groups")) %>%
+  mutate(method2 = factor(method, levels = c("state-level TWFE LPM",
+                                                "Callaway Sant'Anna unbalanced, ref = never treated",
+                                                "Sun and Abraham, balanced, no small groups")))
+
+#remake figure for the paper
+ggplot(results12,
+       aes(y = method2, x = estimate2)) + geom_point() + 
+  geom_vline(xintercept = 0, lty = 2) + 
+  geom_text(aes(label = description), nudge_y = 0.1) + 
+  geom_linerange(aes(xmin = lb2, xmax = ub2)) + 
+  labs(y = "", x = "Risk difference (percentage points)") + 
+  scale_y_discrete(limits = rev, labels = c("Sun and Abraham", "Callaway and Sant'Anna", "TWFE")) + 
+  theme_bw()
+
+```
+
+Figure S1
+
+```{r}
+results13 <- results11 %>% filter(method %in% c("state-level TWFE LPM balanced restricted", 
+                                          "Callaway Sant'Anna manual balance, no small groups, ref = never treated",
+                                          "Sun and Abraham, balanced, no small groups")) %>%
+  mutate(method2 = factor(method, levels = c("state-level TWFE LPM balanced restricted",
+                                                "Callaway Sant'Anna manual balance, no small groups, ref = never treated",
+                                                "Sun and Abraham, balanced, no small groups")))
+
+ggplot(results13,
+       aes(y = method2, x = estimate2)) + geom_point() + 
+  geom_vline(xintercept = 0, lty = 2) + 
+  geom_text(aes(label = description), nudge_y = 0.1) + 
+  geom_linerange(aes(xmin = lb2, xmax = ub2)) + 
+  labs(y = "", x = "Risk difference (percentage points)") + 
+  #scale_y_discrete(limits=rev) +
+  scale_y_discrete(limits = rev, labels = c("Sun and Abraham", "Callaway and Sant'Anna", "TWFE")) + #"Sun and Abraham", "Callaway and Sant'Anna", "TWFE")) + 
+  theme_bw()
+```
+
+### Bacon decomposition
+
+```{r}
+# df_bacon <- bacon(ptb_prop ~ post_policy,
+#                   data = all_years_agg,
+#                   id_var = "state_num",
+#                   time_var = "month_index")
+
+
+table(all_years_agg$state_r, all_years_agg$month_index) #states AK, MA, MN, MS, VA exclude the earliest years
+
+# all_years_agg %>% filter(state_r == "AK") %>% View() #treated in month 57 (one of the ones treated on their own)
+# all_years_agg %>% filter(state_r == "MA") %>% View() #treated in month 37 along with 13 other states
+# all_years_agg %>% filter(state_r == "MN") %>% View() #treated in month 37 along with 13 other states
+# all_years_agg %>% filter(state_r == "MS") %>% View() #never-treated
+# all_years_agg %>% filter(state_r == "VA") %>% View() #never-treated
+
+
+
+df_bacon <- bacon(ptb_prop ~ post_policy,
+                  data = all_years_agg2,
+                  id_var = "state_num",
+                  time_var = "month_index")
+
+(0.06798*0.00074) + (0.02055*-0.00197) + (0.91146*0.00154)
+#0.00141347
+#91% of the weight is on the treated vs. the untreated and it's average effect is 0.00154
+
+df_bacon
+
+#compare with the results from the model:
+#0.0014171 (a touch different but very close)
+mod1 <- lm(ptb_prop ~ post_policy + state_r + as.factor(month_index), data = all_years_agg2) 
+summary(mod1)
+```
+
+
+```{r}
+chaise <- twowayfeweights(all_years_agg2, "ptb_prop", G = "treated_group", T = "month_index", D = "post_policy", cmd_type = "feTR")
+
+chaise2 <- twowayfeweights(all_years_agg2 %>% filter(month_index >= 33, ever_treated == T), "ptb_prop", G = "treated_group", T = "month_index", D = "post_policy", cmd_type = "feTR")
+
+df_bacon2 <- bacon(ptb_prop ~ post_policy,
+                  data = all_years_agg2 %>% filter(month_index >= 33, ever_treated == T),
+                  id_var = "state_num",
+                  time_var = "month_index")
+
+df_bacon2
+```
+
+Related to prob treatment at any time point, 
+If half are never treated the half ever treated is 0.5
+
+### Roth and Sant'Anna
+
+I don't think we want to include these but keeping them here in case we do...
+
+```{r}
+
+#Calculate efficient estimator for the simple weighted average
+mod3 <- staggered(df = all_years_agg,
+                  i = "state_num",
+                  t = "month_index",
+                  g = "treated_group2",
+                  y = "ptb_prop", 
+                  estimand = "simple")
+
+mod3
+
+round(c(mod3$estimate, mod3$estimate - 1.96*mod3$se, mod3$estimate + 1.96*mod3$se)*100, 2)
+round(c(mod3$estimate, mod3$estimate - 1.96*mod3$se_neyman, mod3$estimate + 1.96*mod3$se_neyman)*100, 2)
+
+mod3_1 <- staggered(df = all_years_agg,
+                  i = "state_num",
+                  t = "month_index",
+                  g = "treated_group2",
+                  y = "ptb_prop", 
+                  estimand = "cohort")
+
+mod3_1
+
+round(c(mod3_1$estimate, mod3_1$estimate - 1.96*mod3_1$se, mod3_1$estimate + 1.96*mod3_1$se)*100, 2)
+round(c(mod3_1$estimate, mod3_1$estimate - 1.96*mod3_1$se_neyman, mod3_1$estimate + 1.96*mod3_1$se_neyman)*100, 2)
+
+
+mod3_2 <- staggered(df = all_years_agg,
+                  i = "state_num",
+                  t = "month_index",
+                  g = "treated_group2",
+                  y = "ptb_prop", 
+                  estimand = "calendar")
+
+mod3_2
+
+round(c(mod3_2$estimate, mod3_2$estimate - 1.96*mod3_2$se, mod3_2$estimate + 1.96*mod3_2$se)*100, 2)
+round(c(mod3_2$estimate, mod3_2$estimate - 1.96*mod3_2$se_neyman, mod3_2$estimate + 1.96*mod3_2$se_neyman)*100, 2)
+```
+
+
+### OLD
+
+```{r}
+# Reproduce the Callaway and Sant'Anna estimates using the staggered package
+
+#example
+#df <- staggered::pj_officer_level_balanced #load the officer data
+# staggered(df = df, 
+#           i = "uid",
+#           t = "period",
+#           g = "first_trained",
+#           y = "complaints", 
+#           estimand = "simple")
+
+#Callaway and Sant'Anna - reproduce previous findings (with 49 and 67 dropped, curious that 57 is not also dropped...)
+mod1 <- staggered_cs(df = all_years_agg,
+                  i = "state_num",
+                  t = "month_index",
+                  g = "treated_group2",
+                  y = "ptb_prop", 
+                  estimand = "simple")
+mod1
+
+round(c(mod1$estimate, mod1$estimate - 1.96*mod1$se, mod1$estimate + 1.96*mod1$se)*100, 2)
+round(c(mod1$estimate, mod1$estimate - 1.96*mod1$se_neyman, mod1$estimate + 1.96*mod1$se_neyman)*100, 2)
+```
+
+```{r}
+# estimate effects using group-time ATT
+a2 <- all_years_agg %>% filter(! (treated_group %in% c(49, 67)))
+
+m2 <- att_gt(yname = "ptb_prop", 
+             tname = "month_index", 
+             idname = "state_num", 
+             gname = "treated_group", 
+             data = a2, 
+             anticipation = 0)
+
+m2_ag <- aggte(m2, type="simple")
+m2_ag$overall.att
+m2_ag$overall.se
+
+lb = m2_ag$overall.att - 1.96*m2_ag$overall.se 
+ub = m2_ag$overall.att + 1.96*m2_ag$overall.se
+round(c(m2_ag$overall.att, lb, ub)*100, 2)
+```
