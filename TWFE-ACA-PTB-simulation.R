@@ -352,7 +352,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print("dynamic: gtATT")
   # estimate effects using group-time ATT 
   m2_dte <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte, anticipation=0)
-  m2_dte_ag <- aggte(m2_dte, type="dynamic")
+  m2_dte_ag <- aggte(m2_dte, type="simple")
   #summary(m2_hte_ag) 
   #ggdid(m2_hte_ag)
   
@@ -372,7 +372,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print("dynamic gtATT eventually treated")
   # estimate effects using group-time ATT among those who eventually get the intervention 
   m2_dte_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte_i, anticipation=0, control_group = "notyettreated")
-  m2_dte_ea_ag <- aggte(m2_dte_ea, type="dynamic")
+  m2_dte_ea_ag <- aggte(m2_dte_ea, type="simple")
   
   # calculate the truth for the average effect in the post-period 
   dte_truth_avg <- (DTE[1]*sum(dat_dte$time_since_A>=0 & dat_dte$time_since_A<12 & dat_dte$ever_A==1, na.rm=T) + 
@@ -575,7 +575,7 @@ system.time(results_ls <- lapply(1:1000, function(x) sim_rep(x, dat=dat, CTE = -
 results_df <- data.frame(do.call(rbind, results_ls))
 
 #write.csv(results_df, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_results_PTB.csv", row.names = F)
-write.csv(results_df, file="./results/twfe_sim_results_PTB_n1000_06012022.csv", row.names = F)
+write.csv(results_df, file="./results/twfe_sim_results_PTB_n1000_05272022.csv", row.names = F)
 
 results_df_calc <- results_df %>% pivot_longer(cols= everything(), names_to=c("estimand", "parameter", "method"), names_sep="_")
 results_df_calc <- results_df_calc %>% group_by(estimand, parameter, method) %>% mutate(iteration = row_number())
@@ -604,4 +604,4 @@ results_df_summary <- results_df_calc %>% group_by(parameter, method) %>% summar
                                                                                        power = mean(power))
 
 
-write.csv(results_df_summary, file="./results/twfe_sim_results_summary_PTB_n1000_06012022.csv", row.names = F)
+write.csv(results_df_summary, file="./results/twfe_sim_results_summary_PTB_n1000_05272022.csv", row.names = F)
