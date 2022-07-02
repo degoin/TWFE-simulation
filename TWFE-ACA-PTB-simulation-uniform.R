@@ -330,7 +330,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print("dynamic: gtATT")
   # estimate effects using group-time ATT 
   m2_dte <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte, anticipation=0)
-  m2_dte_ag <- aggte(m2_dte, type="dynamic")
+  m2_dte_ag <- aggte(m2_dte, type="simple")
   
   print("dynamic: SA")
   # estimate effects using Sun and Abraham approach 
@@ -347,19 +347,19 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print("dynamic gtATT eventually treated")
   # estimate effects using group-time ATT among those who eventually get the intervention 
   m2_dte_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_dte_i, anticipation=0, control_group = "notyettreated")
-  m2_dte_ea_ag <- aggte(m2_dte_ea, type="dynamic")
+  m2_dte_ea_ag <- aggte(m2_dte_ea, type="simple")
   
   # calculate the truth for the average effect in the post-period 
-  #dte_truth_avg <- (DTE[1]*sum(dat_dte$time_since_A>=0 & dat_dte$time_since_A<12 & dat_dte$ever_A==1, na.rm=T) + 
-  #                    DTE[2]*sum(dat_dte$time_since_A>=12 & dat_dte$time_since_A<24 & dat_dte$ever_A==1, na.rm=T) +
-  #                    DTE[3]*sum(dat_dte$time_since_A>=24 & dat_dte$ever_A==1, na.rm=T))/sum(dat_dte$time_since_A>=0 & dat_dte$ever_A==1,na.rm=T)
+  dte_truth_avg <- (DTE[1]*sum(dat_dte$time_since_A>=0 & dat_dte$time_since_A<12 & dat_dte$ever_A==1, na.rm=T) + 
+                      DTE[2]*sum(dat_dte$time_since_A>=12 & dat_dte$time_since_A<24 & dat_dte$ever_A==1, na.rm=T) +
+                      DTE[3]*sum(dat_dte$time_since_A>=24 & dat_dte$ever_A==1, na.rm=T))/sum(dat_dte$time_since_A>=0 & dat_dte$ever_A==1,na.rm=T)
   
-  dte_truth_avg <- (DTE[1]*12 + DTE[2]*12 + DTE[3]*(max(dat_dte$month_ind) - min(dat_dte$A_time[dat_dte$ever_A==1]) - 24))/(max(dat_dte$month_ind) - min(dat_dte$A_time[dat_dte$ever_A==1]))
+  #dte_truth_avg <- (DTE[1]*12 + DTE[2]*12 + DTE[3]*(max(dat_dte$month_ind) - min(dat_dte$A_time[dat_dte$ever_A==1]) - 24))/(max(dat_dte$month_ind) - min(dat_dte$A_time[dat_dte$ever_A==1]))
 
   # calculate truth for average effect in the post-period for ever adopted group -- need to exclude last treated group 
- # dte_truth_avg_ea <- (DTE[1]*sum(dat_dte_i$time_since_A>=0 & dat_dte_i$time_since_A<12 & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) + 
-#                         DTE[2]*sum(dat_dte_i$time_since_A>=12 & dat_dte_i$time_since_A<24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) +
- #                        DTE[3]*sum(dat_dte_i$time_since_A>=24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T))/sum(dat_dte_i$time_since_A>=0 & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T)
+  dte_truth_avg_ea <- (DTE[1]*sum(dat_dte_i$time_since_A>=0 & dat_dte_i$time_since_A<12 & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) + 
+                         DTE[2]*sum(dat_dte_i$time_since_A>=12 & dat_dte_i$time_since_A<24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) +
+                        DTE[3]*sum(dat_dte_i$time_since_A>=24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T))/sum(dat_dte_i$time_since_A>=0 & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T)
   
   dte_truth_avg_ea <- (DTE[1]*12 + DTE[2]*12 + DTE[3]*(max(dat_dte_i$A_time) - min(dat_dte_i$A_time) - 24))/(max(dat_dte_i$A_time) - min(dat_dte_i$A_time))
 
@@ -546,7 +546,7 @@ results_ls <- lapply(1:1000, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = 
 
 results_df <- data.frame(do.call(rbind, results_ls))
 
-write.csv(results_df, file="./results/twfe_uniform_sim_results_PTB_n1000_06012022.csv", row.names = F)
+write.csv(results_df, file="./results/twfe_uniform_sim_results_PTB_n1000_05272022.csv", row.names = F)
 
 results_df_calc <- results_df %>% pivot_longer(cols= everything(), names_to=c("estimand", "parameter", "method"), names_sep="_")
 results_df_calc <- results_df_calc %>% group_by(estimand, parameter, method) %>% mutate(iteration = row_number())
@@ -575,4 +575,4 @@ results_df_summary <- results_df_calc %>% group_by(parameter, method) %>% summar
                                                                                     power = mean(power))
 
 
-write.csv(results_df_summary, file="./results/twfe_uniform_sim_results_summary_PTB_n1000_06012022.csv", row.names = F)
+write.csv(results_df_summary, file="./results/twfe_uniform_sim_results_summary_PTB_n1000_05272022.csv", row.names = F)
