@@ -1,0 +1,214 @@
+---
+title: "TWFE models"
+output: html_document
+---
+
+**Overview**
+
+This file takes the dataset containing the individual birth records and the policy information and runs the traditional
+TWFE analysis. It does it in a few different ways using individual vs aggregated to the state-month data.
+
+**Inputs:** 
+
+Note that the restricted births data is not available publicly and so is not uploaded to GitHub.
+./restricted-data/births_all: this is the dataset of individual birth records merged to policy data
+
+**Outputs:**
+
+./home/corinneriddell/ACA-PTB/output-data/results.csv:Contains the parameter estimate and CI for the TWFE specifications
+
+```{r load-libraries}
+# set path
+riddellPath <- c( "/data/riddell//R/x86_64-pc-linux-gnu-library/4.1/" , .libPaths() )
+.libPaths(riddellPath)
+
+# load libraries
+library(magrittr)
+library(tidyverse)
+library(tibble)
+library(readxl)
+library(readr)
+library(data.table)
+library(ggrepel)
+library(sandwich)
+library(did)
+library(tigris)
+```
+
+```{r}
+#load in the restricted births data
+all_years2 <- fread("./restricted-data/births_all")
+```
+
+### DID model with individual level data
+
+```{r}
+# bare bones DID model
+# individual level data, linear probability model
+system.time(mod2 <- lm(CR_ptb ~ post_policy + state_r + as.factor(month_index), data = all_years2))
+summary(mod2)
+
+#robust standard errors
+system.time(m2_var <- vcovHC(mod2, type="HC3")) #ten mins -- takes a long time when using the individual level data
+
+lb = summary(mod2)$coefficients["post_policy", "Estimate"] - 1.96*sqrt(m2_var["post_policy","post_policy"]) 
+ub = summary(mod2)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m2_var["post_policy","post_policy"])
+c(lb, ub)
+
+results <- data.frame(estimate = summary(mod2)$coefficients["post_policy", "Estimate"], 
+           lb = lb, 
+           ub = ub, 
+           method = "individual-level TWFE LPM")
+```
+
+### DID model with aggregated state-month data
+
+```{r}
+all_years_agg <- all_years2 %>% 
+  group_by(state_r, month_index) %>% 
+  summarize(ptb_prop = mean(CR_ptb), 
+            DOB_MM = first(DOB_MM), 
+            DOB_YY = first(DOB_YY), 
+            post_policy = first(post_policy), 
+            ever_treated = first(ever_treated), 
+            Expansion_Date = first(Expansion_Date)) %>%
+  arrange(state_r, month_index)
+
+all_years_agg %<>%
+  ungroup() %>%
+  group_by(state_r) %>%
+  arrange(state_r, month_index) %>%
+  mutate(time_since_policy = cumsum(post_policy))
+  
+mod5 <- glm(ptb_prop ~ post_policy + state_r + as.factor(month_index), data = all_years_agg, family = "gaussian") 
+#Gaussian to keep things additive
+summary(mod5)
+
+#how does this estimate compare to model 2?
+
+#robust SE
+system.time(m5_var <- vcovHC(mod5, type="HC3"))
+
+lb2 = summary(mod5)$coefficients["post_policy", "Estimate"] - 1.96*sqrt(m5_var["post_policy","post_policy"]) 
+ub2 = summary(mod5)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m5_var["post_policy","post_policy"])
+c(lb2, ub2)
+
+results2 <- data.frame(estimate = summary(mod5)$coefficients["post_policy", "Estimate"], 
+           lb = lb2, 
+           ub = ub2, 
+           method = "state-level TWFE LPM")
+
+results2 <- bind_rows(results, results2)
+
+#Below returns the same result of the previous specification so i commented it out
+#this is an alternative specification but is equivalent to what is above
+# mod5.2 <- lm(ptb_prop ~ post_policy + state_r + as.factor(month_index), data = all_years_agg) 
+# summary(mod5.2)
+
+# #robust SE
+# system.time(m5_var2 <- vcovHC(mod5.2, type="HC3"))
+# 
+# lb3 = summary(mod5.2)$coefficients["post_policy", "Estimate"] - 1.96*sqrt(m5_var2["post_policy","post_policy"]) 
+# ub3 = summary(mod5.2)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m5_var2["post_policy","post_policy"])
+# 
+# #double checking these are the same - they are 
+# c(lb2, ub2)
+# c(lb3, ub3)
+```
+
+### Run the alternative methods and see how these affect the results
+
+```{r}
+# TWFE if you only include those who eventually get the intervention 
+mod6 <- glm(ptb_prop ~ post_policy + state_r + as.factor(month_index), 
+            data = all_years_agg %>% filter(ever_treated == TRUE), family = "gaussian") #Gaussian to keep things additive
+summary(mod6)
+
+system.time(m6_var <- vcovHC(mod6, type="HC3"))
+
+lb4 = summary(mod6)$coefficients["post_policy", "Estimate"] - 1.96*sqrt(m6_var["post_policy","post_policy"]) 
+ub4 = summary(mod6)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m6_var["post_policy","post_policy"])
+c(lb4, ub4)
+
+results3 <- data.frame(estimate = summary(mod6)$coefficients["post_policy", "Estimate"], 
+           lb = lb4, 
+           ub = ub4, 
+           method = "state-level TWFE ever-treated")
+
+results3 <- bind_rows(results2, results3)
+```
+
+```{r}
+#take away the states that make things unbalanced
+all_years_agg2 <- all_years_agg %>% filter(! (state_r %in% c("AK", "MA", "MN", "MS", "VA")))
+
+mod5_balanced <- glm(ptb_prop ~ post_policy + state_r + as.factor(month_index), data = all_years_agg2, family = "gaussian") 
+#Gaussian to keep things additive
+summary(mod5_balanced)
+
+#how does this estimate compare to model 2?
+
+#robust SE
+system.time(m5_var <- vcovHC(mod5_balanced, type="HC3"))
+
+lb2 = summary(mod5_balanced)$coefficients["post_policy", "Estimate"] - 1.96*sqrt(m5_var["post_policy","post_policy"]) 
+ub2 = summary(mod5_balanced)$coefficients["post_policy", "Estimate"] + 1.96*sqrt(m5_var["post_policy","post_policy"])
+c(lb2, ub2)
+
+
+results4 <- data.frame(estimate = summary(mod5_balanced)$coefficients["post_policy", "Estimate"], 
+           lb = lb2, 
+           ub = ub2, 
+           method = "state-level TWFE LPM balanced")
+
+results4 <- bind_rows(results3, results4)
+
+#add variables that are formatted as percentages (eg 0.02 becomes 2%)
+results4 <- results4 %>% mutate(
+  estimate2 = estimate*100, 
+  lb2 = lb*100,
+  ub2 = ub*100,
+  description = paste0(round(estimate2, 2), " (", round(lb2, 2), ", ", round(ub2, 2), ")")
+)
+
+ggplot(results4, aes(y = method, x = estimate2)) + geom_point() + 
+  geom_vline(xintercept = 0, lty = 2) + 
+  geom_text(aes(label = description), nudge_y = 0.1) + 
+  geom_linerange(aes(xmin = lb2, xmax = ub2)) + 
+  labs(y = "", x = "Risk difference (percentage points)")
+
+write_csv(results4, file = "/home/corinneriddell/ACA-PTB/output-data/results.csv")
+
+```
+
+### Dynamic TWFE specifications
+
+Here the exposure is coded as time since the policy changes. This is equal to 0 for never treated states (all their state months), and 0 in pre-treatment
+time for treated states. And then it counts the time since the policy change for each following month.
+
+```{r}
+mod7<- glm(ptb_prop ~ as.factor(time_since_policy) + state_r + as.factor(month_index), data = all_years_agg, family = "gaussian") 
+#Gaussian to keep things additive
+summary(mod7)
+
+#robust SE
+system.time(m7_var <- vcovHC(mod7, type="HC3"))
+
+dynamic_effects <- data.frame("event_time" = NA,
+                              "estimate" = NA,
+                              "lb" = NA,
+                              "ub" = NA)
+
+for (i in 1:36) {
+  estimate <- summary(mod7)$coefficients[paste0("as.factor(time_since_policy)", i), "Estimate"]
+  me <- 1.96*sqrt(m7_var[paste0("as.factor(time_since_policy)", i), paste0("as.factor(time_since_policy)", i)])
+  new_row <- data.frame("event_time" = i, "estimate" = estimate, "lb"= estimate - me, "ub" = estimate + me)
+  dynamic_effects[i, ] <- c(i, estimate, estimate - me, estimate + me)
+}
+
+
+ggplot(dynamic_effects, aes(x = event_time, y = estimate)) + 
+  geom_point() + 
+  geom_linerange(aes(ymin = lb, ymax = ub )) + 
+  geom_hline(yintercept = 0)
+```
