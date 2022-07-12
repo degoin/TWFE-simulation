@@ -1,5 +1,5 @@
 ---
-title: "Companion Guide to 'New developments in difference-in-differences designs'"
+title: "Companion Guide to 'INSERT TITLE HERE'"
 output: 
   html_document:
     toc: true
@@ -10,13 +10,23 @@ output:
     theme: lumen
 ---
 
+
+```{r, echo = F}
+colorize <- function(x, color) {
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{%s}{%s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color,
+      x)
+  } else x
+}
+```
+
 ## How to use this Companion Guide
 
 **Citations**
 
-Please use the following citation when using this website:
-
-1. Goin DE, Riddell CA (2022). New developments in difference-in-differences designs. Pre-print. ADD LINK.
+Please use the following citation when using this website: Goin DE, Riddell CA (2022). INSERT TITLE HERE. Pre-print. ADD LINK.
 
 **Bug reports**
 
@@ -24,8 +34,15 @@ Submit any bug reports to: c.riddell [AT] berkeley [DOT] edu or open an issue on
 
 ## Overview
 
-In this companion guide, we illustrate scenarios in which difference in differences
-analysis can be applied. We start with the simplest of scenarios and slowly amp
+In this companion guide, we illustrate scenarios in which difference in differences (DID)
+analysis can be applied. Importantly, this is a **companion** guide -- meaning, it 
+does not stand alone. We assume readers know what a DID design is and has some 
+background knowledge outlined in the 
+corresponding manuscript and previous literature. Reviewing the manuscript and its
+references is a great place to start if this guide leaves you with more questions
+than answers.
+
+We start with the simplest of difference in differences scenarios and slowly amp
 up the complexity. For each scenario we describe a target parameter
 to estimate and the parameter estimated by a two-way fixed effects (TWFE) model. We
 also apply the Goodman-Bacon decomposition to this parameter to determine if the
@@ -38,12 +55,13 @@ provides suitable results and scenarios where this approach is biased.
 In the latter case, we show alternative methods to estimation to overcome the 
 issue.
 
-In the following examples, state policy changes are the effects of interest. 
+In the following examples, the effect of state policy changes on a health 
+outcome is the effect of interest. 
 
 ### Load the R packages used in this analysis
 
-First, load the packages for reading and plotting the data. The packages `bacondecomp` and 
-`did` are specific to DID analyses.
+First, load the packages for reading and plotting the data. The packages `bacondecomp`,  
+`did`, and `staggered` are specific to DID analyses. 
 
 ```{r, echo = F}
 # set path
@@ -56,22 +74,22 @@ riddellPath <- c( "/data/riddell//R/x86_64-pc-linux-gnu-library/4.1/" , .libPath
 # install.packages(c("here", "readxl", "tidyverse", "patchwork", "magrittr", 
 # "broom", "ggrepel",  "bacondecomp", "did", "staggered"))
 
-library(here)
-library(readxl)
-library(tidyverse)
-library(patchwork)
-library(magrittr)
-library(broom)
-library(ggrepel)
-library(bacondecomp)
-library(did)
-library(staggered)
+library(here) #nice file paths
+library(readxl) #read in excel data
+library(tidyverse) #collection of packages for data science
+library(patchwork) #"stiches" together ggplots
+library(magrittr) #pipes
+library(broom) #tidy displays
+library(ggrepel) #for labelling points on a ggplot
+library(bacondecomp) #Goodman Bacon Decomposition
+library(did) #Callaway and Sant'Anna estimator for DID
+library(staggered) #Sun and Abraham estimator for DID
 ```
 
 ### Package Versions
 
 Since the packages used for these analyses are relatively new, we anticipate 
-they may change over time and that these changes may affect the readers ability 
+them to change over time and that these changes may affect the readers ability 
 to reproduce the results. Here are the packages we are using in the analyses,
 if your results differ, it may be because you are using newer versions of the 
 packages.
@@ -86,12 +104,12 @@ packageVersion("did")
 
 We first consider the simplest case in which there is one state that never adopts 
 the policy (the never-treated group), and one state that does implement the policy 
-(the group that undergoes treatment). The groups are observed during two time 
-periods only. 
+(the treated group). The groups are observed at two time periods only. 
 
-Below, the data are read in from an excel spreadsheet. Feel free to view the 
-data in the spreadsheet or use an R `View()`er window.
-The data contain four variables `state`, `time`, `policy`, and `outcome`. 
+Below, the data are read in from an Excel spreadsheet. You can open the spreadsheet
+in Excel to view it if that comes naturally to you, or, use an R `View()`er window
+after you have imported it. The data contain four variables `state`, `time`, 
+`policy`, and `outcome`. 
 
 * `state`: ID for the grouping variable
 * `time`: Time index, begins at 1
@@ -106,7 +124,7 @@ s1 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen1",
 ```
 Note that I specified the column types for each variable. I read in the state, 
 time, and policy variables as "text" so that R will consider them as 
-categorical/factor variables in the analysis (or, using econ-speak using 
+categorical/factor variables in the analysis (or, using econ-speak, as 
 "fixed effects").
 
 ### Visualization of Scenario 1
@@ -134,43 +152,40 @@ or equivalently,
 under the following assumptions
 
 Three standard assumptions are typical stated in DID papers and required for the 
-DID estimate [in the simple case?] to estimate the causal effect of interest:
+DID estimate `r colorize("[in the simple case?]", "red")` to estimate the causal 
+effect of interest:
 
-1) **Parallel trends, or counterfactual parallel trends as described by 
-Ben-Michael:** Had the treated group not been treated, the trends for the treated 
-state would be the same as the trends for the never-treated state.
+1) **Parallel trends** Had the treated group not been treated, the trends for 
+the treated state would continue to be the same as the never-treated state during
+the post treatment time period. 
 2) **No anticipation:** The effect of the policy change begins after it is introduced; 
 there is no anticipatory effect before the policy is introduced. Anticipatory
-effects can occur if individuals change their behavior in anticipation of a 
+effects occur if individuals change their behavior in anticipation of a 
 policy change.
-3) **[NAME FOR THIS ONE:]** The policy is the only thing that changes at the time of
-treatment that affects the outcome
+3) `r colorize("[NAME FOR THIS ONE:]", "red")` The policy is the only thing that changes at the time of
+treatment that affects the outcome.
 
-If you're familiar with causal inference, you will also know about the main 
+If you're familiar with causal inference theory, you will also know about the main 
 assumptions required when estimating causal effects. Ben-Micheal et al. expound
 on these in their paper, and we expand on them here:
 
 4) **Consistency:** The policy change is the same across treated units. For 
 example, if states introduced a texting ban while driving and these bans were 
 associated with different penalties, then the policy change would not meet the
-consistency assumption because the different penalties may have varying effects 
-on the outcomes of interest.
+consistency assumption because the different penalties may have varyed effects 
+on the outcome.
 5) **No interference:** Outcomes of individuals in one state do not affect 
 outcomes of individuals in other states.
 6) **Exchangeability:** Had the treated states been untreated, they would have 
 experienced the trend in outcomes experienced by the untreated group. This 
-causal assumption is the same as the counterfactual parallel trends assumption
-[DANA DO YOU AGREE?]. 
-7) **Positivity:** Each state has a non-zero probability of being treated. [TO
-DISCUSS: See Ben-Micheal paper - they say that positivity is not a required
-assumption for standard DID]
+causal assumption is the same as the parallel trends assumption. `r colorize("[DANA DO YOU AGREE?]", "red")`
+7) **Positivity:** Each state has a non-zero probability of being treated. 
+`r colorize("DISCUSS: See Ben-Micheal paper - they say that positivity is not a required assumption for standard DID]", "red")`
 
-WHERE TO PUT THIS ONE IF WE TALK ABOUT IT?
-
-8) **Correct model specification**: SOMETHING ABOUT LINEARITY? ALSO RELATED TO THE PARALLEL TRENDS ASSUMPTION 
+8) **Correct model specification**: `r colorize("SOMETHING ABOUT LINEARITY? ALSO RELATED TO THE PARALLEL TRENDS ASSUMPTION", "red")`
 
 
-### Two-way fixed effected (TWFE) regression model
+### Two-way fixed effects (TWFE) regression model
 
 Under the canonical TWFE design, we can estimate the policy effect by including
 a fixed effect (FE) for state, a FE for time, and an indicator for the policy
@@ -184,11 +199,14 @@ tidy(s1_mod)
 The coefficient on the policy term is `r s1_mod$coefficients[4]` showing that
 the regression model estimate equalled the causal effect.
 
+**Note:** that in this scenario and the other simple scenarios we cover, there is no
+variability in the data, so the model cannot estimate a standard error (as 
+indicated by the `NaN` in the regression output). In a later scenario, we add
+noise to the data and show how to estimate the standard error.
+
 **Takeaway:** When there are only two treatment groups and two time points, 
 where one of the groups becomes treated, you can calculate the DID estimate 
-by hand or using TWFE regression. Note that there are only 4 rows of data
-and no sampling variability so no measures of variation can be estimated in this
-setting.
+by hand or using TWFE regression.
 
 ## Scenario 2A and 2B (3 states, homogeneous and heterogeneous treatment effects)
 
@@ -257,29 +275,28 @@ s2a_mod <- lm(outcome ~ policy + state + time, data = s2a)
 tidy(s2a_mod)
 ```
 
-The coefficient estimate equals to `r s2a_mod$coefficients["policy1"]` the ATT for Scenario 2a. 
+The coefficient estimate for the policy variable equals to 
+`r s2a_mod$coefficients["policy1"]`, which is the ATT for Scenario 2a. 
 
 ```{r}
 s2b_mod <- lm(outcome ~ policy + state + time, data = s2b)
 tidy(s2b_mod)
 ```
 
-The coefficient estimate equals to `r s2b_mod$coefficients["policy1"]` the ATT for Scenario 2b. 
+The coefficient estimate for the policy variable equals to 
+`r s2b_mod$coefficients["policy1"]`, which is the ATT for Scenario 2b. 
 
 **Takeaway:** When there are multiple treatment groups and two time points, 
 where >1 of the groups becomes treated, you can calculate the DID estimate by 
 hand or using TWFE regression. If treatment effects are heterogeneous across 
 states, then the estimated effect is the average ATT across the 
-states
+states.
 
-**Things to discuss with Dana:**
+`r colorize("Do you have a sense why the state FEs in Scen 2b are a bit off? The FE for state 2 should be 1 and for state 3 should be 2.", "red")`
 
-- The state FEs are a bit off (FE for state 3 should be 2, for state 2 should be 1)
-- Interesting to think about differences in the p-value for scen 2a (very small) vs 2b (big)
+## Scenario 3A and 3B (Two states, multiple time points)
 
-## Scenario 3A and 3B (Two states, dynamic treatment effect)
-
-In scenario 3, the number of time periods is increased to incorporate 5 time 
+In Scenario 3, the number of time periods is increased to incorporate 5 time 
 points before and after a policy change. One never-treated and one treated
 group are considered. In Scenario 3A, the effect of treatment is constant once
 treatment is introduced. In Scenario 3B, the effect of treatment increases with 
@@ -287,9 +304,7 @@ time (i.e., it is dynamic).
 
 Because there are multiple time points, when we read in the data we update the 
 column type for the time variable to be numeric. This will help with plotting 
-the data. Later, when we run the TWFE model, we will use `factor(time)` to
-model time using indicator variables (i.e., time fixed effects) rather than
-including time as a linear term.
+the data. 
 
 ```{r}
 s3a <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen3a",
@@ -304,7 +319,7 @@ another variable `time_since_policy` which equals 0 before treatment (and
 always equals 0 for the never-treated), and counts the time since treatment in
 the treated state.
 
-```{r, echo = F}
+```{r, echo = F, warning = F}
 
 # Because there are multiple time points, we first take the average of the outcome
 # during the pre and post-treatment time period separately for each state. 
@@ -315,7 +330,7 @@ s3b %<>% mutate(post = time >= 6)
 
 s3a_mean_info <- s3a %>% 
   group_by(state, post) %>%
-  summarise(mean_y = mean(outcome)) %>% 
+  summarise(mean_y = mean(outcome), .groups = 'drop') %>% 
   pivot_wider(id_cols = state, 
               names_from = post, 
               names_pre = "post_",
@@ -323,16 +338,17 @@ s3a_mean_info <- s3a %>%
   mutate(diff = post_TRUE - post_FALSE)
 
 s3b_mean_info <- s3b %>% group_by(state, post) %>%
-  summarise(mean_y = mean(outcome)) %>% 
+  summarise(mean_y = mean(outcome), .groups = 'drop') %>% 
   pivot_wider(id_cols = state,
               names_from = post,
               names_pre = "post_",
               values_from = mean_y) %>%
   mutate(diff = post_TRUE - post_FALSE)
 ```
+
 ### Visualization of Scenario 3
 
-```{r, echo=F}
+```{r, echo=F, fig.height = 5, fig.width = 10}
 s3a %<>% mutate(ever_trt = case_when(state == "2" ~ "treated",
                                      state == "1" ~ "never-treated"))
 
@@ -400,7 +416,7 @@ The following can be read from the labelled plot for Scenario 3B:
 * DID = 6
 
 For Scenario 3B the effect is dynamic, and rather than 
-calculating an ATT that aggregates over post-time, it might be beneficial to calculate 
+calculating an ATT that aggregates over post-time, we may want to calculate 
 the effect separately by time since treatment. Here, the effect increases over 
 time, suggesting that the policy change takes time to "kick-in". In contrast, 
 some policies may be associated with large initial effects that attenuate over 
@@ -413,7 +429,11 @@ to include a categorical indicator for time since the policy's introduction.
 
 ### TWFE Regression Model
 
-Estimation of the dynamic effect in Scenario 3A:
+Estimation of the dynamic effect in Scenario 3A. Different from the previous 
+scenarios, we need to use `factor(time)` to ensure time is modeled using 
+indicator variables (i.e., time fixed effects) since we imported it as a numeric
+variable in this scenario to make plotting easier. 
+
 ```{r}
 s3a_mod <- lm(outcome ~ policy + state + factor(time), 
              data = s3a)
@@ -449,7 +469,7 @@ s3a_mod2 <- lm(outcome ~ time_since_policy + state + factor(time),
 tidy(s3a_mod2)
 ```
 
-Indeed, this is what we see!
+Indeed, this is what we see.
 
 For Scenario 3B, the effect increases by 2 units for every unit of time since
 treatment is initiated so this should be reflected in the coefficient estimates.
@@ -467,12 +487,17 @@ Note that we could have modeled `time_since_policy` linearly, however including
 `time_since_policy` as a factor variable allows the estimation of effects to be
 non-linear over time.
 
+Takeaway: When there are two treatment groups and multiple pre- and post- time points, you can calculate the DID estimate using TWFE regression when the effect is constant 
+or dynamic. Using a "time since treatment" indicator will estimate effects 
+separately by time since the policy change, allowing you to see how the effect 
+has changed over time.
+
 ## Scenario 4 (4 states, hetergenous treatment effects)
 
 Scenario 4 extends Scenario 3 to the multiple group setting. State 1 is 
 never-treated, while states 2-4 undergo treatment at time=6. The effects are 
 not dynamic in time, but they are heterogeneous with some states having a larger
-treatment effect 
+treatment effect. 
 
 ```{r}
 s4 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen4",
@@ -486,7 +511,7 @@ s4 %<>% mutate(ever_trt = case_when(state %in% c("2", "3", "4") ~ "treated",
                                      state == "1" ~ "never-treated"))
 
 s4_mean_info <- s4 %>% group_by(state, post) %>%
-  summarise(mean_y = mean(outcome)) %>% 
+  summarise(mean_y = mean(outcome), .groups = "drop") %>% 
   pivot_wider(id_cols = state, names_from = post, names_pre = "post_", values_from = mean_y) %>%
   mutate(diff = post_TRUE - post_FALSE)
 ```
@@ -520,9 +545,9 @@ The following can be read from the labelled plot:
 * Pre-post difference for treated state 3: 35-19 = 16
 * Pre-post difference for treated state 4: 39-21 = 18
 
-* $DID_{2 vs. 1} = 17-15 = 2$
-* $DID_{3 vs. 1} = 16-15 = 1$
-* $DID_{4 vs. 1} = 18-15 = 3$
+* $DID_{2 vs 1} = 17-15 = 2$
+* $DID_{3 vs 1} = 16-15 = 1$
+* $DID_{4 vs 1} = 18-15 = 3$
 * $ATT = 2$
 
 ### TWFE Regression Model 
@@ -538,12 +563,12 @@ showing that the regression model estimates the ATT.
 
 One of the issues with TWFE estimation is that contrasts between earlier-treated
 and later-treated states contribute to the coefficient estimate of the policy 
-term. While all states are treated at the same time in Scenario 4, we can use
+term. While all states are treated at the same time in this scenario, we can use
 the Goodman-Bacon decomposition function `bacon()` to partition the effect 
 estimate into weighted component parts. 
 
-Before using the `bacon()` function, we need to modify some of the variables
-that are stored as characters by R to be stored as numeric: 
+Before using the `bacon()` function, we need to create numeric-coded versions of
+some of the variables that are stored as characters: 
 
 ```{r}
 s4 %<>% mutate(state_n = as.numeric(as.character(state)),
@@ -552,8 +577,9 @@ s4 %<>% mutate(state_n = as.numeric(as.character(state)),
 
 The `bacon` function has an argument called `formula`, where you list the outcome
 as a function of the policy change, i.e., `formula = outcome ~ policy_n`. Note 
-that no fixed effects are included in the formula. The time and state fixed 
-effects are specified by the `time_var`and `id_var` arguments.
+that no fixed effects for state or time are included in the formula. Instead, 
+the time and state fixedeffects are specified by the `time_var`and `id_var` 
+arguments.
 
 ```{r}
 s4_bacon <- bacon(formula = outcome ~ policy_n, 
@@ -565,7 +591,7 @@ s4_bacon <- bacon(formula = outcome ~ policy_n,
 This small table illustrates that 100% of the weight is put on comparisons between
 treated and untreated states and the ATT equals 2.
 
-For more detail we can print the object:
+For more detail we  print the object:
 
 ```{r}
 s4_bacon 
@@ -600,11 +626,16 @@ summary(m2_ag)
 Here, we see the ATT is equal to `r # m2_ag$overall.att` as estimated by the TWFE 
 model.
 
+Ideally, we would also show you how to run the Sun and Abraham estimator for 
+this scenario but the function to do so, `staggered_sa()`, throws an error 
+when trying to estimate the standard error. Thus, we will show you how to use
+this function in the scenario that incorporates noise into the data.
+
 ## Scenario 5 (4 states, staggered treatment timing)
 
-Scenario 5 introduces staggered timing. In this example, the treated states introduce the policy at two different time points.
-The treatment effects are non-dynamic and there are two never-treated states and
-two ever-treated states.
+Scenario 5 introduces staggered timing. In this example, the treated states 
+introduce the policy at two different time points. The treatment effects are 
+non-dynamic and there are two never-treated states and two ever-treated states.
 
 ```{r}
 s5 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen5",
@@ -695,8 +726,8 @@ s5_comp2 <- ggplot(s5 %>% filter(state %in% c(1, 2, 4)), aes(x = time, y = outco
   theme_bw() + 
   scale_x_continuous(limits = c(1, 20)) + 
   scale_shape_manual(values = c(21, 23)) + 
-  scale_fill_manual(values = c("#a6cee3","#1f78b4","#005a32")) +
-  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32"))
+  scale_fill_manual(values = c("#a6cee3","#1f78b4","#99000d")) +
+  scale_color_manual(values = c("#a6cee3","#1f78b4","#99000d"))
 
 s5_comp4 <- ggplot(s5 %>% filter(state %in% c(3, 4), time >= 5), aes(x = time, y = outcome)) +   
   geom_line(aes(col = factor(state))) +
@@ -709,8 +740,8 @@ s5_comp4 <- ggplot(s5 %>% filter(state %in% c(3, 4), time >= 5), aes(x = time, y
   theme_bw() + 
   scale_x_continuous(limits = c(1, 20)) + 
   scale_shape_manual(values = 23) + 
-  scale_fill_manual(values = c("#a6cee3","#1f78b4","#005a32")) +
-  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32"))
+  scale_fill_manual(values = c("#005a32", "#99000d")) +
+  scale_color_manual(values = c("#005a32", "#99000d"))
 
 s5_comp3 <- ggplot(s5 %>% filter(state %in% c(3, 4), time < 12), aes(x = time, y = outcome)) +   
   geom_line(aes(col = factor(state))) + 
@@ -723,8 +754,8 @@ s5_comp3 <- ggplot(s5 %>% filter(state %in% c(3, 4), time < 12), aes(x = time, y
   theme_bw() + 
   scale_x_continuous(limits = c(1, 20)) + 
   scale_shape_manual(values = 23) + 
-  scale_fill_manual(values = c("#a6cee3","#1f78b4","#005a32")) +
-  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32"))
+  scale_fill_manual(values = c("#005a32", "#99000d")) +
+  scale_color_manual(values = c("#005a32", "#99000d"))
 
 s5_comp1 + s5_comp2 + s5_comp3 + s5_comp4 + plot_layout(guides = "collect")
 ```
@@ -815,6 +846,9 @@ summary(s5_cs_ag)
 
 Here, we see the ATT is equal to `r s5_cs_ag$overall.att` as estimated by the 
 TWFE model.
+
+**Takeaway:** When a policy's introduction is staggered in time and the treatment
+effect is constant (not dynamic), TWFE can be used to estimate the treatment effect.
 
 ## Scenario 6 (4 states, staggered timing, dynamic effects)
 
@@ -1020,8 +1054,9 @@ Okay, so we know the TWFE regression estimate is wrong, in particular because it
 contrast that we wouldn't want to make in practice between an earlier treated and a later treated group. To overcome this we can use the Callaway and Sant'Anna estimator. 
 
 Like in the earlier examples we start by running the `att_gt()` function. Unlike
-before, we display the output from this step using `summary()`. This output shows the estimated ATT for each combination of treated state and time. The time is long
-becuase it includes estimates for pre-policy time, which helps with the 
+before, we display the output from this step using `summary()`. This output 
+shows the estimated ATT for each combination of treated state and time. The time is long
+because it includes estimates for pre-policy time, which helps with the 
 evaluation of the parallel trends assumption or to see if there are any lead 
 effects ("anticipation") of the treatment on the outcome. You wouldn't usually 
 report this entire table, but it worth showing here to see how the estimated 
@@ -1045,7 +1080,7 @@ Callaway and Sant'Anna provide many options for aggregating the group-time
 effects. The simplest option is specify `type = simple` in the `attge()` function.
 This estimate considered only the clean contrasts (Comparisons 1 and 2 in the figure
 above) and combines them by weighting by the total
-time in the post-treatment period. For contrast 1, there are 16 
+time in the post-treatment period `r colorize("Is there more to say about how the weighting is done?", "red")`. For contrast 1, there are 16 
 time periods post treatment and for contrast 2, there are 9 periods 
 post-treatment. Thus this estimate is the weighted average: $10.5\times(16/25) + 7\times(9/25)=$ `r 10.5*(16/25) + 7*(9/25)`
 
@@ -1058,7 +1093,7 @@ summary(s6_cs_ag)
 ```
 Alternatively, we can specify `type = "group"` to get separate effect estimates 
 according to time of implementation. Note that `group` denotes the time of 
-the policy change for the treated states.
+the policy's introduction for the treated states.
 
 ```{r}
 s6_cs_ag2 <- aggte(s6_cs, type = "group")
@@ -1085,7 +1120,7 @@ time. Epidemiologically, this doesn't make a lot of sense with dynamic effects
 because it is mixing effect estimates across difference times since treatment
 was introduced. In some cases, only one comparison is contributing to the estimation
 (e.g., in calendar time periods where only one group has introduced the treatment), 
-while at other points, two comparisons contribute. But this "knowledge" is lot
+while at other points, two comparisons contribute. But this "knowledge" is lost
 in the presentation. We don't show the output from using `type = "calendar"` but
 include the code below in case it makes sense for your setting.
 
