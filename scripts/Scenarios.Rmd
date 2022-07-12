@@ -1819,16 +1819,19 @@ TWFE estimate because they do not use information based on the forbidden contras
 ## Scenario 9 (same as previous but with less pre-exposure time)
 
 In this scenario, we use the same data from Scenario 8, except we limit the 
-time before the first intervention point to 5 time units, rather than the 15 
-in Scenario 8. If you look back at the illustration of the previous scenario,
-this change should not effect the estimates of the effects since...`r colorize("finish", "red")`
+pre-intervention point to 5 time units, rather than the 15 
+in Scenario 8. The amount of pre-intervention time should not affect the size of 
+the effect estimate because the size of the change from the previous scenario is
+the same. The goal of this scenario is to see how the different estimators are 
+affected by this change in the amount of pre-intervention time.
 
-The goal is to see how the different estimators are affected by 
-this change. 
+We start by limiting the time frame to begin at time t=10 or larger:
 
 ```{r}
 all_states2 <- all_states %>% filter(time >= 10)
 ```
+
+And then we re-run the model: 
 
 ```{r}
 s9_mod <- lm(outcome ~ policy + factor(state) + factor(time), 
@@ -1836,7 +1839,7 @@ s9_mod <- lm(outcome ~ policy + factor(state) + factor(time),
 tidy(s9_mod)
 ```
 
-Again, we need to use the `vcovHC` function to estimate the SE and obtain the 
+Again, we use the `vcovHC` function to estimate the SE and obtain the 
 95% confidence interval for the policy coefficient:
 
 ```{r}
@@ -1847,7 +1850,7 @@ ub2 = summary(s9_mod)$coefficients["policy1", "Estimate"] + 1.96*sqrt(m2_var["po
 ```
 
 The estimated effect is `r round(est2, 1)` with a 95% CI from `r sprintf("%.1f", round(lb2, 1))`
-to `r round(ub2, 1)`. Let's compare thish with the estimate from the previous Scenario:
+to `r round(ub2, 1)`. Let's compare this with the estimate from Scenario 8:
 
 |           | Estimate (95% CI) | 
 |----------:|:------------------|
@@ -1855,7 +1858,10 @@ to `r round(ub2, 1)`. Let's compare thish with the estimate from the previous Sc
 |Scenario 9 | `r paste0(round(est2, 1), " (", sprintf("%.1f", round(lb2, 1)), ",", round(ub2, 1), ")")` |
 
 The estimate for Scenario 9 is much lower than that for Scenario
-8. Let's see if the weights from the Bacon decomposition can hint at why.
+8. Let's see how the weights from the Bacon decomposition for Scenario 9 compare
+to Scenario 8. 
+
+Scenario 9 weights:
 
 ```{r}
 all_states2 %<>% mutate(policy_n = as.numeric(policy))
@@ -1868,12 +1874,13 @@ s9_bacon <- bacon(outcome ~ policy_n,
 s9_bacon
 ```
 
-And again recall the weights from Scenario 8:
+Scenario 8 weights:
 
 ```{r}
 s8_bacon
 
 ```
+
 Comparing the weights:
 
 ```{r, echo=F}
@@ -1884,19 +1891,19 @@ comparison %>% mutate(`Weight difference` = `Scenario 9 weight` - `Scenario 8 we
   mutate_if(is.numeric, ~round(., 2)) %>% relocate(type, .after = last_col())
 ```
 
-We can see that more weight is put on the states treated at time=22 in Scenario
+More weight is put on the states treated at time=22 in Scenario
 9 vs. 8 and less weight on the states treated at time=15. This is because the 
-TWFE estimator is a weighted combination, where the weights are partially 
-determined by how close the treatment change is to the middle of the panel, with
-more weight put on the estimates for groups with changes closer to the middle of
-the panel. For scenario 8, the states with treatment changes at time 15 are exactly
+TWFE estimator is a weighted combination of contrasts, where the weights are partially 
+determined by how close the contrast is to the middle of the panel.
+More weight is put on the estimates for groups with changes closer to the middle of
+the panel. For Scenario 8, the states with treatment changes at time 15 are exactly
 in the middle of the panel (which had 30 time units), but for Scenario 9, with 
 a shortened pre-treatment period, less weight is put on this group as they are
 further away from the middle of the panel and more weight is put on the group 
 that introduced treatment at time point 22 because this becomes closer to the middle.
 
-This weighting is done by the TWFE but does not likely correspond to any weighting 
-that you, the researcher, would choose. Concerning!
+This weighting does not likely correspond to any weighting 
+that the researcher would choose. Concerning!
 
 Let's see how the other estimators are effected by this change:
 
@@ -1932,7 +1939,7 @@ round(c(s8_sa$estimate, s8_sa$estimate - 1.96*s8_sa$se_neyman, s8_sa$estimate + 
 The Sun Abraham estimate also stays exactly the same!
 
 **Takeway:** The TWFE estimate is affected by the length of the panel. It places
-more weight on the constrasts which are closer to the middle of the panel. The 
+more weight on contrasts that are closer to the middle of the panel. The 
 Callaway Sant'Anna and Sun Abraham estimates do not have this issue.
 
 ## To Do
@@ -1969,3 +1976,16 @@ maybe try implementing this example
 #  theme_bw()
 ```
 
+### Ben-Micheal Approach
+
+```{r, include = F}
+source("../helper_func_ed.R")
+
+m4 <- fit_event_jack(outcome_var = "outcome", 
+                         date_var = "time", 
+                         unit_var = "state",
+                         policy_var = "time_first_treat", 
+                         data = all_states2, 
+                         max_time_to = 10000)
+  
+```
