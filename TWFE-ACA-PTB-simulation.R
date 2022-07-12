@@ -15,6 +15,8 @@ packageVersion("did")
 
 #source in helper functions used in Ben-Micheal approach
 source("helper_func_ed.R")
+source("helper_func_ed_sum.R")
+source("helper_func_ed_sum_hte.R")
 
 #set.seed(15295632) #broke at iteration 45 (see error sent to Dana)
 set.seed(461)
@@ -182,6 +184,14 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   dat <- dat %>% mutate(A_time_sa = ifelse(A_time!=0, A_time, Inf))
   m3 <- staggered_sa(df = dat, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "simple")
   
+  print("target trial")
+  dat<- dat %>% ungroup()
+  dat$month <- as.Date(dat$month)
+  dat$A_month <- as.Date(dat$A_month)
+  
+  # estimate effects using Ben Michael target trial approach 
+  m4 <- fit_event_jack_sum(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat, max_time_to = 10000)
+  
   print("TWFE ever-treated")
   # TWFE if you only include those who eventually get the intervention 
   dat_i <- dat %>% filter(ever_A==1)
@@ -219,6 +229,10 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                                    lb = m3$estimate - 1.96*m3$se_neyman, 
                                    ub = m3$estimate + 1.96*m3$se_neyman, 
                                    power = as.numeric(m3$estimate + 1.96*m3$se_neyman<0)), 
+                            cbind(estimator="target.trial", result=m4$estimate, 
+                                  lb = m4$estimate - 1.96*m4$se, 
+                                  ub = m4$estimate + 1.96*m4$se, 
+                                  power = as.numeric(m4$estimate + 1.96*m4$se<0)), 
                              cbind(estimator = "TWFE.ever.adopted", result = summary(m1_i)$coefficients["A", "Estimate"], 
                                    lb = summary(m1_i)$coefficients["A", "Estimate"] - 1.96*sqrt(m1_var["A","A"]), 
                                    ub = summary(m1_i)$coefficients["A", "Estimate"] + 1.96*sqrt(m1_var["A","A"]), 
@@ -262,6 +276,17 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   # estimate effects using Sun and Abraham approach 
   m3_hte <- staggered_sa(df = dat_hte, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "cohort")
   
+  
+  print("target trial")
+  dat_hte<- dat_hte %>% ungroup()
+  dat_hte$month <- as.Date(dat_hte$month)
+  dat_hte$A_month <- as.Date(dat_hte$A_month)
+  
+  # estimate effects using Ben Michael target trial approach 
+  m4_hte <- fit_event_jack_sum_hte(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat_hte, max_time_to = 10000)
+  
+  
+  
   print("hetergeneous: TWFE ever treated")
   # TWFE if you only include those who eventually get the intervention 
   dat_hte_i <- dat_hte %>% filter(ever_A==1)
@@ -297,7 +322,11 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                             cbind(estimator = "staggered.SA", result = m3_hte$estimate, 
                                    lb = m3_hte$estimate - 1.96*m3_hte$se_neyman, 
                                    ub = m3_hte$estimate + 1.96*m3_hte$se_neyman, 
-                                  power = as.numeric(m3_hte$estimate + 1.96*m3_hte$se_neyman<0))))
+                                  power = as.numeric(m3_hte$estimate + 1.96*m3_hte$se_neyman<0)), 
+                            cbind(estimator="target.trial", result=m4_hte$estimate, 
+                                  lb = m4_hte$estimate - 1.96*m4_hte$se, 
+                                  ub = m4_hte$estimate + 1.96*m4_hte$se, 
+                                  power = as.numeric(m4_hte$estimate + 1.96*m4_hte$se<0))))
   
   
   df_hte_ea <-  data.frame(rbind(cbind(estimator="truth", result=hte_truth_ea, lb=NA, ub=NA, power=NA), 
@@ -360,6 +389,13 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   # estimate effects using Sun and Abraham approach 
   m3_dte <- staggered_sa(df = dat_dte, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "calendar")
   
+  print("target trial")
+  dat_dte<- dat_dte %>% ungroup()
+  dat_dte$month <- as.Date(dat_dte$month)
+  dat_dte$A_month <- as.Date(dat_dte$A_month)
+  
+  # estimate effects using Ben Michael target trial approach 
+  m4_dte <- fit_event_jack_sum(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat_dte, max_time_to = 10000)
 
   print("dynamic: TWFE eventually treated")
   # TWFE if you only include those who eventually get the intervention 
@@ -402,7 +438,11 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                                  cbind(estimator = "staggered.SA", result = m3_dte$estimate, 
                                        lb = m3_dte$estimate - 1.96*m3_dte$se_neyman, 
                                        ub = m3_dte$estimate + 1.96*m3_dte$se_neyman, 
-                                       power = as.numeric(m3_dte$estimate + 1.96*m3_dte$se_neyman<0))))
+                                       power = as.numeric(m3_dte$estimate + 1.96*m3_dte$se_neyman<0)), 
+                                 cbind(estimator="target.trial", result=m4_dte$estimate, 
+                                       lb = m4_dte$estimate - 1.96*m4_dte$se, 
+                                       ub = m4_dte$estimate + 1.96*m4_dte$se, 
+                                       power = as.numeric(m4_dte$estimate + 1.96*m4_dte$se<0))))
   
   df_dte_avg_ea <- data.frame(rbind(cbind(estimator="truth", result=dte_truth_avg_ea, lb = NA, ub = NA, power=NA), 
                                     cbind(estimator = "TWFE.ever.adopted", result = summary(m1_dte_i)$coefficients["A", "Estimate"], 
@@ -567,7 +607,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
 }
 
 
-system.time(results_ls <- lapply(1:1000, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02))))
+system.time(results_ls <- lapply(1:100, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02))))
 #785.424 for 5 iterations (13 minutes/2.6 minutes per iteration) seconds on timberwolf
 #4.4 hours for 100 iterations - starting at 11:50am - should be done by 4:30pm ish
 #last run stopped at i=323, see if it works this time...
