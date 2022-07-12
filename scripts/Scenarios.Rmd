@@ -72,7 +72,13 @@ riddellPath <- c( "/data/riddell//R/x86_64-pc-linux-gnu-library/4.1/" , .libPath
 ```{r load-libraries, warning=F, message=F}
 # you will need to install these packages if you don't have them already
 # install.packages(c("here", "readxl", "tidyverse", "patchwork", "magrittr", 
-# "broom", "ggrepel",  "bacondecomp", "did", "staggered"))
+# "broom", "ggrepel",  "bacondecomp", "staggered", "devtools"))
+# devtools::install_github("bcallaway11/did") 
+# as of July 11, 2022, package `did` is currently unavailable on CRAN, so you 
+# need to install the developer version from GitHub, using the code above.
+# You may also need to download the developer version of `DRDID` before if you
+# get an error. To do so use: 
+# devtools::install_github("pedrohcgs/DRDID")
 
 library(here) #nice file paths
 library(readxl) #read in excel data
@@ -1035,13 +1041,15 @@ s6_bacon <- bacon(outcome ~ policy_n,
       id_var = "state_n",
       time_var = "time")
 ```
-It's more helpful to view the four contrasts separately:
+It is more helpful to view the four contrasts separately:
 
 ```{r}
 s6_bacon
 ```
 So we can see the estimates of the treatment effect for each contrast are as we
-calculated them earlier. 
+calculated them earlier. Note that `r round(s6_bacon$weight[3]*100)`% of the weight of the TWFE estimate is on
+Contrast 4 -- the one making the improper comparison between an earlier treated
+and a later treated state.
 
 We can also confirm that you get the TWFE estimate by taking the weighted 
 average of the Goodman-Bacon decomposition components:
@@ -1050,8 +1058,11 @@ average of the Goodman-Bacon decomposition components:
 #see the TWFE estimate
 sum(s6_bacon$estimate*s6_bacon$weight)
 ```
-Okay, so we know the TWFE regression estimate is wrong, in particular because it is incorporating a 
-contrast that we wouldn't want to make in practice between an earlier treated and a later treated group. To overcome this we can use the Callaway and Sant'Anna estimator. 
+
+So we can see that the TWFE regression estimate is biased because it 
+incorporates a contrast that we wouldn't want to make in practice between an 
+earlier treated and a later treated group. To overcome this, we use the 
+Callaway and Sant'Anna estimator. 
 
 Like in the earlier examples we start by running the `att_gt()` function. Unlike
 before, we display the output from this step using `summary()`. This output 
@@ -1165,7 +1176,7 @@ summary parameter.
 
 Scenario 7 is like Scenario 6 except now the treatment effect is dynamic AND
 heterogeneous. In this scenario, the state that implements the policy change 
-first has a stronger treatment effect (i.e., a steeper change in slope)
+first has a stronger treatment effect (i.e., a steeper change in slope).
 
 ```{r}
 s7 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen7", 
@@ -1351,14 +1362,9 @@ contrasts did. So if I were summarizing across these clean contrasts I would wan
 to make a summary estimate across the DID estimates of 18, 5, and 9. One question
 is, how much weight do we put on each of the estimates? Another question is, 
 do we consider the DID estimate of 9 comparing earlier to later treated states?
-So, it isn't straightforward what the estimate should be when summarizing across 
-several contrasts. But what we show below based on the Goodman Bacon decomposition
-is that the TWFE estimator is influenced by the forbidden fourth contrast that
-doesn't meet the parallel trends assumption, so we'd like an estimator that doesn't
-suffer from this concern.
-
-We can now use the Goodman Bacon decomposition to see how much weight each of 
-the contrasts contributes to the effect estimate:
+It isn't straightforward what the estimate should be when summarizing across 
+several contrasts. Let's consider the Goodman Bacon decomposition to see how 
+much each comparison contributed to the TWFE estimate: 
 
 ```{r}
 s7 %<>% mutate(state_n = as.numeric(as.character(state)),
@@ -1374,9 +1380,9 @@ s7_bacon <- bacon(outcome ~ policy_n,
 s7_bacon
 ```
 
-Notice that our fourth contrast (here shown in row 3 of the second table) contributes
-15% of the weight to the estimate. We want an estimator that does not use this
-contrast! 
+Notice that our fourth contrast (here shown in row 3 of the second table) 
+contributes `r round(s7_bacon$weight[3]*100)`% of the weight to the estimate. We
+want an estimator that does not use this contrast! 
 
 Below we confirm the weighted estimate across the rows equals the TWFE estimate
 from the regression:
@@ -1385,6 +1391,11 @@ from the regression:
 #see the TWFE estimate
 sum(s7_bacon$estimate*s7_bacon$weight)
 ```
+
+The TWFE estimator is influenced by the forbidden fourth contrast that doesn't 
+meet the parallel trends assumption, so we'd like an estimator that doesn't
+suffer from this concern.
+
 Now that we know how to use the Callaway and Sant'Anna code, we can apply it to
 this example as well. Let's start by running the `att_gt()` function. This
 time we won't display the output from `summary()`, but feel free to uncomment 
@@ -1416,8 +1427,9 @@ $18\times(16/25) + 5\times(9/25)=$ `r 18*(16/25) + 5*(9/25)`
 s7_cs_ag <- aggte(s7_cs, type="simple")
 summary(s7_cs_ag)
 ```
-**[DANA: CAN YOU CONFIRM YOU AGREE WITH WHAT I WROTE ABOVE? specifically how the 
-simple estimate is calculated.]**
+
+`r colorize("[DANA: CAN YOU CONFIRM YOU AGREE WITH WHAT I WROTE ABOVE? specifically how the 
+simple estimate is calculated.]", "red")`
 
 Alternatively, we can specify `type = "group"` to get separate effect estimates 
 according to time of implementation and see that these match our by-hand calculations: 
@@ -1674,7 +1686,7 @@ ub = summary(s8_mod)$coefficients["policy1", "Estimate"] + 1.96*sqrt(m2_var["pol
 The estimated effect is `r round(est, 1)` with a 95% CI from `r sprintf("%.1f", round(lb, 1))`
 to `r round(ub, 1)`.
 
-We can use the Bacon decomposition to examine the contrasts contributing to the 
+We can use the Goodman Bacon decomposition to examine the contrasts contributing to the 
 TWFE estimate. I set up this scenario such that the effects should be the same
 as for scenario 7, though this time the pre-treatment period is longer than in 
 scenario 7.
@@ -1741,9 +1753,7 @@ And we can confirm how the simple weighted estimate was calculated:
 s8_cs_ag2$att.egt[1]*(16/25) + s8_cs_ag2$att.egt[2]*(9/25)
 ```
 
-NOTE: (Was expecting 18 and 5 as the group specific estimates -- possible we are
-off just due to random error - need to rerun with a different seed or with less
-variability and see if that is true)
+`r colorize("NOTE: (Was expecting 18 and 5 as the group specific estimates -- possible we are off just due to random error - need to rerun with a different seed or with less variability and see if that is true)", "red")`
 
 Finally, we can look at these effect estimated separately for each time since 
 the intervention began and graph them: 
@@ -1758,14 +1768,14 @@ ggdid(s8_cs_ag3)
 ```
 
 Now that we have confidence intervals, we can assess the parallel trends 
-assumption by investigating if the pre-treatment CIs overlap the null and are
+assumption by investigating if the pre-treatment confidence intervals overlap the null and are
 randomly distributed around the zero line. This is true in our example, so we
 wouldn't be concerned about violating the parallel trends assumption with these
 data. 
 
-We can also calculate the Sun & Abraham estimator. (We couldn't run this for the
+We can also calculate the Sun & Abraham estimator. We couldn't run this for the
 other scenarios because the function throws an error when if cannot estimate the
-standard errors for those scenarios.) To use the `staggered_sa` function, we 
+standard errors for those scenarios. To use the `staggered_sa` function, we 
 need to add a new variable where the `time_first_treat` variable is set to `Inf` 
 for all states that were never-treated:
 
@@ -1773,6 +1783,8 @@ for all states that were never-treated:
 table(all_states$time_first_treat, useNA = "always")
 all_states$time_first_treat2 <- all_states$time_first_treat
 all_states$time_first_treat2[all_states$time_first_treat == 0] <- Inf
+
+#check that the recoding is as planned:
 table(all_states$time_first_treat, all_states$time_first_treat2, useNA = "always")
 ```
 
@@ -1792,7 +1804,7 @@ s8_sa$estimate
 ```
 
 The estimate of the treatment effect is `r s8_sa$estimate` and we can calculate
-it's CI using either of these:
+its confidence interval using either of these:
 
 ```{r}
 #95% CI
@@ -1809,7 +1821,7 @@ TWFE estimate because they do not use information based on the forbidden contras
 In this scenario, we use the same data from Scenario 8, except we limit the 
 time before the first intervention point to 5 time units, rather than the 15 
 in Scenario 8. If you look back at the illustration of the previous scenario,
-this change should not effect the estimates of the effects since...[FINSISH]. 
+this change should not effect the estimates of the effects since...`r colorize("finish", "red")`
 
 The goal is to see how the different estimators are affected by 
 this change. 
@@ -1842,7 +1854,7 @@ to `r round(ub2, 1)`. Let's compare thish with the estimate from the previous Sc
 |Scenario 8 | `r paste0(round(est, 1), " (", sprintf("%.1f", round(lb, 1)), ",", round(ub, 1), ")")`  | 
 |Scenario 9 | `r paste0(round(est2, 1), " (", sprintf("%.1f", round(lb2, 1)), ",", round(ub2, 1), ")")` |
 
-As you can see the estimate for Scenarion 9 is much lower than that for Scenario
+The estimate for Scenario 9 is much lower than that for Scenario
 8. Let's see if the weights from the Bacon decomposition can hint at why.
 
 ```{r}
