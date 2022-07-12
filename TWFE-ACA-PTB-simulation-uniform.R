@@ -164,6 +164,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   dat <- dat %>% mutate(A_time_sa = ifelse(A_time!=0, A_time, Inf))
   m3 <- staggered_sa(df = dat, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "simple")
   
+  
   print("target trial")
   dat<- dat %>% ungroup()
   dat$month <- as.Date(dat$month)
@@ -260,7 +261,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   
   # estimate effects using Ben Michael target trial approach 
   m4_hte <- fit_event_jack_sum_hte(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat_hte, max_time_to = 10000)
-  
+
   
   print("hetergeneous: TWFE ever treated")
   # TWFE if you only include those who eventually get the intervention 
@@ -305,7 +306,6 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                                    lb = m4_hte$estimate - 1.96*m4_hte$se, 
                                    ub = m4_hte$estimate + 1.96*m4_hte$se, 
                                    power = as.numeric(m4_hte$estimate + 1.96*m4_hte$se<0))))
-  
   
   
   
@@ -376,7 +376,6 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   m4_dte <- fit_event_jack_sum(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat_dte, max_time_to = 10000)
   
   
-  
   print("dynamic: TWFE eventually treated")
   # TWFE if you only include those who eventually get the intervention 
   dat_dte_i <- dat_dte %>% filter(ever_A==1)
@@ -418,7 +417,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                                  cbind(estimator = "staggered.SA", result = m3_dte$estimate, 
                                        lb = m3_dte$estimate - 1.96*m3_dte$se_neyman, 
                                        ub = m3_dte$estimate + 1.96*m3_dte$se_neyman, 
-                                       power = as.numeric(m3_dte$estimate + 1.96*m3_dte$se_neyman<0)), 
+                                       power = as.numeric(m3_dte$estimate + 1.96*m3_dte$se_neyman<0)),
                                  cbind(estimator="target.trial", result=m4_dte$estimate, 
                                        lb = m4_dte$estimate - 1.96*m4_dte$se, 
                                        ub = m4_dte$estimate + 1.96*m4_dte$se, 
@@ -588,7 +587,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
 }
 
 
-results_ls <- lapply(1:100, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02)))
+results_ls <- lapply(1:1000, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = c(-0.01, -0.02), DTE = c(-0.01, -0.015, -0.02)))
 
 results_df <- data.frame(do.call(rbind, results_ls))
 
