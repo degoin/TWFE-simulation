@@ -1,0 +1,169 @@
+---
+title: "Ben-Micheal, Feller and Stuart: Trial Emulation Approach"
+output: html_document
+---
+
+**Overview**
+
+In this file we run the target trial emulation approach published by Ben-Micheal, Feller, and Stuart.
+
+**Inputs:**
+
+Note that the restricted births data is not available publicly and so is not uploaded to GitHub.
+./restricted-data/births_all: this is the dataset of individual birth records merged to policy data
+
+
+```{r load-libraries}
+# set path
+riddellPath <- c( "/data/riddell//R/x86_64-pc-linux-gnu-library/4.1/" , .libPaths() )
+.libPaths(riddellPath)
+
+# load libraries
+library(tidyverse)
+library(magrittr)
+library(tibble)
+library(readxl)
+library(readr)
+library(data.table)
+library(ggrepel)
+library(sandwich)
+library(did)
+library(tigris)
+```
+
+```{r}
+all_years2 <- fread("./restricted-data/births_all")
+```
+
+```{r}
+all_years_agg <- all_years2 %>% 
+  group_by(state_r, month_index) %>% 
+  summarize(ptb_prop = mean(CR_ptb), 
+            DOB_MM = first(DOB_MM), 
+            DOB_YY = first(DOB_YY), 
+            post_policy = first(post_policy), 
+            ever_treated = first(ever_treated), 
+            Expansion_Date = first(Expansion_Date)) %>%
+  arrange(state_r, month_index)
+```
+
+```{r}
+all_years_agg %<>% 
+  mutate(treated_group = case_when(Expansion_Date == as.Date("2014-01-01") ~ 37, #16 states (36th month + 1)
+                                   Expansion_Date == as.Date("2015-01-01") ~ 49, #PA only
+                                   Expansion_Date == as.Date("2015-09-01") ~ 57, #AK only
+                                   Expansion_Date == as.Date("2016-07-01") ~ 67, #LA only
+                                   Expansion_Date == as.Date("2019-01-01") ~ 0,
+                                   Expansion_Date == as.Date("2020-01-01") ~ 0, #late expanders are considered not treated for this analysis since they expanded after 2017
+                                   is.na(Expansion_Date) ~ 0) #17 states are not treated (across these last two conditions)
+  )
+
+table(all_years_agg$Expansion_Date)
+table(all_years_agg$state_r, all_years_agg$Expansion_Date, useNA = "always")
+
+table(all_years_agg$treated_group, useNA = "always")
+
+#all_years_agg %>% filter(is.na(treated_group)) %>% View()
+
+all_years_agg$treated_group2 <- all_years_agg$treated_group
+all_years_agg$treated_group2[all_years_agg$treated_group == 0] <- Inf
+
+
+fips <- fips_codes %>% select(state, state_code, state_name) %>% distinct() %>% filter(state_code < 60) %>% rename(state_r = state)
+
+all_years_agg <- merge(all_years_agg, fips, by = "state_r")
+
+all_years_agg <- all_years_agg %>% mutate(state_num = as.numeric(state_code))
+```
+
+There are four subgroups based on timing of implementation during this period: 
+- States that introduced the policy change in month 37, 49, 57, or 67. 
+- For each group we will compare the states treated at that time to states never treated over the full range of these data
+- Then we combine the results across the groups using the combination specified in their paper 
+
+```{r}
+
+#this is a set of helper functions provided by Ben-Micheal on their GitHub. These were slightly edited for our setting.
+#link to Ben-Micheal's repository: https://github.com/ebenmichael/policy-trial-emulation
+source("helper_func_ed.R")
+
+all_years_agg <- all_years_agg %>% mutate(date = as.Date(paste0(DOB_YY, "-", DOB_MM, "-", 01)), 
+                          expansion_date = as.Date(Expansion_Date))
+
+all_years_agg$expansion_date[all_years_agg$expansion_date == as.Date("2019-01-01") | 
+                             all_years_agg$expansion_date == as.Date("2020-01-01")  ] <- NA
+
+# `fit_event_jack()` is the function used to run the target trial emulation estimator
+bm_mod2 <- fit_event_jack(outcome = "ptb_prop", 
+                         date_var = "date", 
+                         unit_var = "state_name",
+                         policy_var = "expansion_date",
+                         data = all_years_agg,
+                         max_time_to = 10000) %>% 
+  filter(cohort=="average")
+
+bm_mod2 %>% View()
+
+bm_mod2 <- bm_mod2 %>% mutate(lb = estimate - 1.96*se,
+                              ub = estimate + 1.96*se)
+```
+
+```{r}
+#plot their estimate by event time
+dyn_gtatt <- ggplot(bm_mod2, aes(x = event_time, y = estimate)) + 
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_point(aes(col = event_time >= 0)) + 
+  geom_linerange(aes(ymin = lb, ymax = ub, col = event_time >= 0)) + 
+  labs(y = "Estimate", x = "Event time") + 
+  theme_bw()
+
+ggsave(filename = "./images/dynamic-gtatt.png", width = 8, height = 5, device = "png", plot = dyn_gtatt)
+
+#In the plots below, we compare their estimate with other estimators as specified:
+
+#grey is Callaway and Sant'Anna with **never treated** as ref
+#pink and teal is Ben-Micheal
+compare_cs_bm_dynamic <- ggplot(bm_mod2, aes(x = event_time, y = estimate)) + 
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_point(aes(col = "Ben-Michael")) + 
+  geom_point(data = cs_dynamic, aes(x = event_time + 0.3, y = point_ests, col = "Callaway Sant'Anna")) + 
+  geom_linerange(data = cs_dynamic, aes(x = event_time + 0.3, y = point_ests, ymin = lbs, ymax = ubs, col = "Callaway Sant'Anna")) + 
+  geom_linerange(aes(ymin = lb, ymax = ub, col = "Ben-Michael")) + 
+  labs(y = "Estimate", x = "Event time") + 
+  theme_bw() + 
+  facet_wrap(~ event_time >= 0, scales = "free_x", nrow = 2) 
+
+ggsave(filename = "./images/compare_cs_bm_dynamic.png", width = 12, height = 8, device = "png", plot = compare_cs_bm_dynamic)
+
+compare_twfe_cs_bm_dynamic <- ggplot(bm_mod2, aes(x = event_time, y = estimate)) + 
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_point(aes(col = "Ben-Michael")) + 
+  geom_point(data = cs_dynamic, aes(x = event_time + 0.20, y = point_ests, col = "Callaway Sant'Anna")) + 
+  geom_point(data = dynamic_effects, aes(x = event_time - 0.6, y = estimate, col = "TWFE")) + 
+  geom_linerange(data = cs_dynamic, aes(x = event_time + 0.2, y = point_ests, ymin = lbs, ymax = ubs, col = "Callaway Sant'Anna")) +
+    geom_linerange(data = dynamic_effects, aes(x = event_time - 0.6, y = estimate, ymin = lb, ymax = ub, col = "TWFE")) +
+  geom_linerange(aes(ymin = lb, ymax = ub, col = "Ben-Michael")) + 
+  labs(y = "Estimate", x = "Event time") + 
+  theme_bw() + 
+  facet_wrap(~ event_time >= 0, scales = "free_x", nrow = 2) 
+ggsave(filename = "./images/compare_twfe_cs_bm_dynamic.png", width = 12, height = 8, device = "png", plot = compare_twfe_cs_bm_dynamic)
+
+write_csv(x = bm_mod2, file = "./output-data/ben-micheal-dynamic.csv")
+write_csv(x = cs_dynamic, file = "./output-data/callaway-dynamic.csv")
+write_csv(x = dynamic_effects, file = "./output-data/twfe-dynamic.csv")
+
+#grey is Callaway and Sant'Anna with **not yet treated** as ref
+#pink and teal is Ben-Micheal
+compare_cs_bm2_dynamic <-ggplot(bm_mod2, aes(x = event_time, y = estimate)) + 
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_point(aes(col = event_time >= 0)) + 
+  geom_point(data = cs_dynamic, aes(x = time + 0.3, y = point_ests_notyet), col = "#636363") + 
+  geom_linerange(data = cs_dynamic, aes(x = time + 0.3, y = point_ests_notyet, ymin = lbs_notyet, ymax = ubs_notyet), col = "#636363") +
+  geom_linerange(aes(ymin = lb, ymax = ub, col = event_time >= 0)) + 
+  labs(y = "Estimate", x = "Event time") + 
+  theme_bw()
+
+ggsave(filename = "./images/compare_cs_bm_notyet_dynamic.png", width = 12, height = 8, device = "png", plot = compare_cs_bm2_dynamic)
+
+```
+
