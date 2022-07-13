@@ -675,7 +675,7 @@ results_ls <- lapply(1:1000, function(x) sim_rep(x, dat=dat, CTE = -0.02, HTE = 
 
 results_df <- data.frame(do.call(rbind, results_ls))
 
-write.csv(results_df, file="./results/twfe_uniform_extended_sim_results_PTB_n1000_06012022.csv", row.names = F)
+write.csv(results_df, file="./results/twfe_uniform_extended_sim_results_PTB_n1000_07112022.csv", row.names = F)
 
 results_df_calc <- results_df %>% pivot_longer(cols= everything(), names_to=c("estimand", "parameter", "method"), names_sep="_")
 results_df_calc <- results_df_calc %>% group_by(estimand, parameter, method) %>% mutate(iteration = row_number())
@@ -704,4 +704,4 @@ results_df_summary <- results_df_calc %>% group_by(parameter, method) %>% summar
                                                                                     power = mean(power))
 
 
-write.csv(results_df_summary, file="./results/twfe_uniform_sim_results_extended_followup_summary_PTB_n1000_06012022.csv", row.names = F)
+write.csv(results_df_summary, file="./results/twfe_uniform_sim_results_extended_followup_summary_PTB_n1000_07112022.csv", row.names = F)
