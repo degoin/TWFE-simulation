@@ -4,8 +4,8 @@ library(magrittr)
 library(forcats)
 library(patchwork)
 
-results_df_summary <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_06012022.csv")
-results_old <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_06012022.csv")
+results_df_summary <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_07112022.csv")
+#results_old <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_06012022.csv")
 
 table(results_df_summary$parameter)
 #CTE, many DTE and HTE
@@ -13,27 +13,40 @@ table(results_df_summary$parameter)
 table(results_df_summary$method)
 # group.time.ATT group.time.ATT.ever.adopted          stacked.regression 
 # staggered.SA                        TWFE           TWFE.ever.adopted 
- 
+# target.trial
 
+# note that we don't have stacked.regression below -- need to double check what 
+# these results are to make sure we plot them 
 results_df_summary %<>% 
-  mutate(method2 = fct_relevel(method, c("TWFE", "group.time.ATT", "staggered.SA",
+  mutate(method2 = fct_relevel(method, c("TWFE",
+                                         "group.time.ATT", "staggered.SA", 
+                                         "target.trial", "stacked.regression",
                                          "TWFE.ever.adopted", 
                                          "group.time.ATT.ever.adopted")),
          method3 = case_when(method == "TWFE" ~ 1, 
                              method == "group.time.ATT" ~ 2, 
                              method == "staggered.SA" ~ 3, 
-                             #method == "stacked.regression" ~ 4, 
-                             method ==  "TWFE.ever.adopted" ~ 4, 
-                             method == "group.time.ATT.ever.adopted" ~ 5),
-         method4 = case_when(method == "TWFE" ~ 1, 
-                             method == "group.time.ATT" ~ 2, 
-                             method == "staggered.SA" ~ 3, 
-                             method == "stacked.regression" ~ 4, 
+                             method %in% c("target.trial", "stacked.regression") ~ 4, 
                              method ==  "TWFE.ever.adopted" ~ 5, 
                              method == "group.time.ATT.ever.adopted" ~ 6),
+         method4 = case_when(method2 == "TWFE" ~ "TWFE",
+                             method2 == "group.time.ATT" ~ "Group-time ATT",
+                             method2 == "staggered.SA" ~ "Cohort ATT",
+                             method2 == "target.trial" ~ "Target trial",
+                             method2 == "stacked.regression" ~ "Target trial",
+                             method2 == "TWFE.ever.adopted" ~ "Ever-treated TWFE",
+                             method2 == "group.time.ATT.ever.adopted" ~ "Ever-treated group-time ATT"),
+         method4 = fct_relevel(method4, c("TWFE", "Group-time ATT", "Cohort ATT",
+                                          "Target trial", 
+                                          "Ever-treated TWFE", "Ever-treated group-time ATT"))
          )
 
 
+# scale_x_continuous(breaks = c(1:6), labels=c("TWFE", "Group-time \nATT",
+#                                              "Cohort ATT", "Target trial", 
+#                                              "Ever-treated \nTWFE",
+#                                              "Ever-treated \ngroup-time ATT")) +
+  
 #check that the reorder worked:
 table(results_df_summary$method2)
 table(results_df_summary$method3)
@@ -52,7 +65,7 @@ facet_labels <- c(CTE = "Constant treatment effect",
 
 
 p1 <- ggplot(results2, aes(x = method3, y = coverage)) + 
-  geom_rect(aes(xmin = 3.5, xmax = 5.5, ymin = 0.0, ymax = 1.1),
+  geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = 0.0, ymax = 1.1),
             fill = "lightgrey", alpha = 0.5) +
   geom_point(size=5) + #color = method
   geom_text(aes(label = coverage), position = position_nudge(x = 0.1, y = 0.04)) + 
@@ -60,15 +73,13 @@ p1 <- ggplot(results2, aes(x = method3, y = coverage)) +
   facet_wrap(~parameter2, labeller = labeller(parameter2 = facet_labels)) + 
   geom_hline(aes(yintercept=0.95), linetype=3) + 
   labs(x = "", y = "Coverage") + 
-  scale_x_continuous(breaks = c(1:5), labels=c("TWFE", "Group-time \nATT", 
-                                               "Staggered SA", "Ever-treated \nTWFE",
+  scale_x_continuous(breaks = c(1:6), labels=c("TWFE", "Group-time \nATT",
+                                               "Cohort ATT", "Target trial", 
+                                               "Ever-treated \nTWFE",
                                                "Ever-treated \ngroup-time ATT")) +
   theme(axis.text.x=element_text(angle = 45, vjust = 0.1)) + #angle = 45) 
   theme(legend.position = "none") +
   scale_y_continuous(labels = scales::percent) 
-  #coord_flip()
-  #+ 
-  #scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33"))
 
 p1
 #ggsave(p1, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_coverage_PTB.pdf", width=10)
@@ -76,7 +87,7 @@ ggsave(p1, file="../TWFE-simulation/results/twfe_sim_coverage_PTB_n1000.png",
        width=15, height = 5, device = "png")
 
 p2 <- ggplot(results2, aes(x= method3, y = bias))  + 
-  geom_rect(aes(xmin = 3.5, xmax = 5.5, ymin = -0.002, ymax = 0.005),
+  geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = -0.002, ymax = 0.005),
             fill = "lightgrey", alpha = 0.5) +
   geom_point(size=5) +
   geom_text_repel(aes(label = round(bias, 5))) + # position = position_nudge(x = 0.2, y = 0.00001)
@@ -84,8 +95,9 @@ p2 <- ggplot(results2, aes(x= method3, y = bias))  +
   facet_wrap(~parameter2, labeller = labeller(parameter2 = facet_labels)) + 
   geom_hline(aes(yintercept=0), linetype=3) + 
   labs(x="", y="Bias") + 
-  scale_x_continuous(breaks = c(1:5), labels=c("TWFE", "Group-time \nATT", 
-                                               "Staggered SA", "Ever-treated \nTWFE",
+  scale_x_continuous(breaks = c(1:6), labels=c("TWFE", "Group-time \nATT",
+                                               "Cohort ATT", "Target trial", 
+                                               "Ever-treated \nTWFE",
                                                "Ever-treated \ngroup-time ATT")) +
   theme(axis.text.x=element_text(angle = 45, vjust = 0.1))  + 
   theme(legend.position = "none") 
@@ -99,7 +111,7 @@ ggsave(p2, file="../TWFE-simulation/results/twfe_sim_bias_PTB_n1000.png",
 
 
 p3 <- ggplot(results2, aes(x = method3, y = MSE)) + 
-  geom_rect(aes(xmin = 3.5, xmax = 5.5, ymin = 0, ymax = 2.4e-05),
+  geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = 0, ymax = 2.4e-05),
             fill = "lightgrey", alpha = 0.5) +
   geom_point(size=5) + 
   geom_text_repel(aes(label = round(MSE, 7))) +
@@ -107,8 +119,9 @@ p3 <- ggplot(results2, aes(x = method3, y = MSE)) +
   facet_wrap(~parameter2, labeller = labeller(parameter2 = facet_labels)) + 
   geom_hline(aes(yintercept=0), linetype=3) + 
   labs(x="", y="Mean Squared Error") + 
-  scale_x_continuous(breaks = c(1:5), labels=c("TWFE", "Group-time \nATT", 
-                                               "Staggered SA", "Ever-treated \nTWFE",
+  scale_x_continuous(breaks = c(1:6), labels=c("TWFE", "Group-time \nATT",
+                                               "Cohort ATT", "Target trial", 
+                                               "Ever-treated \nTWFE",
                                                "Ever-treated \ngroup-time ATT")) +
   theme(axis.text.x=element_text(angle = 45, vjust = 0.1))  + 
   theme(legend.position = "none")  
@@ -121,7 +134,7 @@ ggsave(p3, file="../TWFE-simulation/results/twfe_sim_mse_PTB_n1000.png",
        width=15, height = 5, device = "png")
 
 p4 <- ggplot(results2, aes(x = method3, y = power)) + 
-  geom_rect(aes(xmin = 3.5, xmax = 5.5, ymin = 0.5, ymax = 1.1),
+  geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = 0.5, ymax = 1.1),
             fill = "lightgrey", alpha = 0.5) +
   geom_point(size=5) + 
   geom_text_repel(aes(label = sprintf(power, fmt = '%#.2f'))) +
@@ -129,25 +142,28 @@ p4 <- ggplot(results2, aes(x = method3, y = power)) +
   facet_wrap(~parameter2, labeller = labeller(parameter2 = facet_labels)) + 
   #geom_hline(aes(yintercept=0), linetype=3) + 
   labs(x="", y="Power") + 
-  scale_x_continuous(breaks = c(1:5), labels=c("TWFE", "Group-time \nATT", 
-                                               "Staggered SA", "Ever-treated \nTWFE",
+  scale_x_continuous(breaks = c(1:6), labels=c("TWFE", "Group-time \nATT",
+                                               "Cohort ATT", "Target trial", 
+                                               "Ever-treated \nTWFE",
                                                "Ever-treated \ngroup-time ATT")) +
   theme(axis.text.x=element_text(angle = 45, vjust = 0.1))  + 
   theme(legend.position = "none") +
   scale_y_continuous(labels = scales::percent) 
 #+ scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3", "#e34a33"))
 
-results_df_summary %<>% mutate(ever.adopted.est = case_when(method %in% c("TWFE.ever.adopted", "group.time.ATT.ever.adopted") ~ "Ever-treated only", 
-                                                            !(method %in% c("TWFE.ever.adopted", "group.time.ATT.ever.adopted")) ~ "All states"))
-
 p4
 ggsave(p4, file="../TWFE-simulation/results/twfe_sim_power_PTB_n1000.png", 
-       width=15, height = 5, device = "png")
+       width = 15, height = 5, device = "png")
 
 all_1 <- p1 + p2 + p3 + p4 + plot_layout(nrow = 4)
 all_1
 ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all_PTB_n1000.png", 
        width=15, height = 20, device = "png")
+
+results_df_summary %<>% 
+  mutate(ever.adopted.est = 
+           case_when(method %in% c("TWFE.ever.adopted", "group.time.ATT.ever.adopted") ~ "Ever-treated only",
+                     !(method %in% c("TWFE.ever.adopted", "group.time.ATT.ever.adopted")) ~ "All states"))
 
 # dynamic effects 
 results_df_summary <- results_df_summary %>% mutate(time_pt = substr(parameter, 4, 8))
@@ -159,153 +175,91 @@ results_df_summary <- results_df_summary %>% mutate(pre_post = as.numeric(time_p
 # coverage
 results3 <- results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg"))
 
+
 #coverage CR attempt #1
 p41 <- ggplot(results3,
-              aes(x = time_pt, y = coverage, col = method2)) +
-  geom_line(aes(col = method2)) +
-  geom_point(aes(col = method2)) +
+              aes(x = time_pt, y = coverage)) +
+  geom_line() +
+  geom_point() +
   geom_vline(xintercept = 0, linetype = 2) +
   geom_hline(yintercept = 0.95) +
-  scale_color_manual(values=c("#9e0142", #burgandy
-                              "#66c2a5",  #seafoam green
-                              "grey", 
-                              "#e34a33",  #fire engine red
-                              "black",
-                              "#4393c3"), #cornflower blue),
-                     labels=c("TWFE",
-                              "Group-time \nATT", 
-                              "Staggered SA",
-                              "Ever-treated \nTWFE",
-                              "Ever-treated \ngroup-time ATT", 
-                              "Stacked regression")
-                     ) +
-  # labels=c("group-time \nATT", "ever-treated \ngroup-time ATT",
-  #          "stacked \nregression", "TWFE", "ever-treated \nTWFE"
+  # scale_color_manual(values=c("#9e0142", #burgandy
+  #                             "#66c2a5",  #seafoam green
+  #                             "grey",
+  #                             "#e34a33",  #fire engine red
+  #                             "black",
+  #                             "#4393c3"), #cornflower blue),
+  #                    labels=c("TWFE",
+  #                             "Group-time \nATT",
+  #                             "Cohort ATT",
+  #                             "Ever-treated \nTWFE",
+  #                             "Ever-treated \ngroup-time ATT",
+  #                             "Target Trial"
+  #                             )
+  # ) +
   labs(y = "Coverage", x = "Method") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
   scale_y_continuous(labels = scales::percent) +
-  facet_wrap(~ever.adopted.est)
+  facet_wrap(~method4, nrow = 1)
 
 p41
 #ggsave(p41, file="../TWFE-simulation/results/twfe_sim_coverage3_PTB.pdf", width=10)
 ggsave(p41, file="../TWFE-simulation/results/dyn_coverage_n1000.png", 
-       width=12,height = 4, device = png)
-
-
-# bias
-# p5 <- ggplot(results3) + 
-#   geom_point(aes(x=method, y=bias, shape=method, color=method, alpha=pre_post), size=5) + theme_bw(base_size = 15) + 
-#   labs(x="", y="bias") + 
-#   scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33"), labels=c("group-time \nATT", "ever-treated \ngroup-time ATT", "TWFE", "ever-treated \nTWFE")) +
-#   theme_bw(base_size = 15) +   scale_x_discrete(labels=c("group-time \nATT", "ever-treated \ngroup-time ATT", "TWFE", "ever-treated \nTWFE")) +
-#   geom_text_repel(aes(x=method, y=bias, label = time_pt)) +  theme(legend.position = "none") 
-# 
-# #p5
-# ggsave(p5, file="../TWFE-simulation/results/twfe_sim_bias2_PTB.pdf", width=10)
+       width=15,height = 3.5, device = png)
 
 p51 <- ggplot(results3,
               aes(x = time_pt, y = bias)) +
-  geom_line(aes(col = method2)) +
-  geom_point(aes(col = method2)) +
+  geom_line() +
+  geom_point() +
   geom_vline(xintercept = 0, linetype = 2) +
   geom_hline(yintercept = 0) +
-  scale_color_manual(values=c("#9e0142", #burgandy
-                              "#66c2a5",  #seafoam green
-                              "grey", 
-                              "#e34a33",  #fire engine red
-                              "black",
-                              "#4393c3"), #cornflower blue),
-                     labels=c("TWFE",
-                              "Group-time \nATT", 
-                              "Staggered SA",
-                              "Ever-treated \nTWFE",
-                              "Ever-treated \ngroup-time ATT", 
-                              "Stacked regression")
-  ) +
   labs(y = "Bias", x = "Method") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
-  facet_wrap(~ever.adopted.est)
+  facet_wrap(~method4, nrow = 1)
 
 p51
 #ggsave(p51, file="../TWFE-simulation/results/twfe_sim_bias3_PTB.pdf", width=10)
 ggsave(p51, file="../TWFE-simulation/results/dyn_bias_n1000_PTB.png", 
-       width=12,height = 4, device = png)
-
-# MSE
-# p6 <- ggplot(results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg"))) +
-#   geom_point(aes(x=method, y=MSE, shape=method, color=method, alpha=pre_post), size=5) + theme_bw(base_size = 15) +
-#   labs(x="", y="MSE") +
-#   scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33"), labels=c("group-time \nATT", "ever-treated \ngroup-time ATT", "TWFE", "ever-treated \nTWFE")) +
-#   theme_bw(base_size = 15) +   scale_x_discrete(labels=c("group-time \nATT","ever-treated \ngroup-time ATT", "TWFE", "ever-treated \nTWFE")) +
-#   geom_text_repel(aes(x=method, y=MSE, label = time_pt)) +  theme(legend.position = "none")
-# 
-# #p6
-# ggsave(p6, file="../TWFE-simulation/results/twfe_sim_mse2_PTB.pdf", width=10)
+       width=15,height = 3.5, device = png)
 
 p61 <- ggplot(results3,
               aes(x = time_pt, y = MSE)) +
-  geom_line(aes(col = method2)) +
-  geom_point(aes(col = method2)) +
+  geom_line() +
+  geom_point() +
   geom_vline(xintercept = 0, linetype = 2) +
-  scale_color_manual(values=c("#9e0142", #burgandy
-                              "#66c2a5",  #seafoam green
-                              "grey", 
-                              "#e34a33",  #fire engine red
-                              "black",
-                              "#4393c3"), #cornflower blue),
-                     labels=c("TWFE",
-                              "Group-time \nATT", 
-                              "Staggered SA",
-                              "Ever-treated \nTWFE",
-                              "Ever-treated \ngroup-time ATT", 
-                              "Stacked regression")
-  ) +
   labs(y = "Mean squared error", x = "Method") +
   theme_bw(base_size = 15)  + 
   theme(legend.title=element_blank()) + 
-  facet_wrap(~ever.adopted.est)
+  facet_wrap(~method4, nrow = 1)
 
 p61
 #ggsave(p61, file="../TWFE-simulation/results/twfe_sim_mse3_PTB.pdf", width=10)
 
 ggsave(p61, file="../TWFE-simulation/results/dyn_mse_n1000_PTB.png", 
-       width=12,height = 4, device = png)
+       width=15,height = 3.5, device = png)
 
 #power 
 
 p71 <- ggplot(results3,
               aes(x = time_pt, y = power)) +
-  geom_line(aes(col = method2)) +
-  geom_point(aes(col = method2)) +
+  geom_line() +
+  geom_point() +
   geom_vline(xintercept = 0, linetype = 2) +
   #geom_hline(yintercept = 1) +
-  scale_color_manual(values=c("#9e0142", #burgandy
-                              "#66c2a5",  #seafoam green
-                              "grey", 
-                              "#e34a33",  #fire engine red
-                              "black",
-                              "#4393c3"), #cornflower blue),
-                     labels=c("TWFE",
-                              "Group-time \nATT", 
-                              "Staggered SA",
-                              "Ever-treated \nTWFE",
-                              "Ever-treated \ngroup-time ATT", 
-                              "Stacked regression")
-  ) +
   labs(y = "Power", x = "Method") +
   theme_bw(base_size = 15) + 
   scale_y_continuous(labels = scales::percent) +
   theme(legend.title=element_blank()) + 
-  facet_wrap(~ever.adopted.est)
+  facet_wrap(~method4, nrow = 1)
 
 p71
 
 ggsave(p71, file="../TWFE-simulation/results/dyn_power_n1000_PTB.png", 
-       width=12, height = 4, device = png)
+       width=15, height = 3.5, device = png)
 
 dyn_all <- p41 + p51 + p61 + p71 + plot_layout(nrow = 4, guides = "collect")
 
 ggsave(dyn_all, file="../TWFE-simulation/results/dyn_all_n1000_PTB.png", 
-       width=15, height = 20, device = png)
+       width=18, height = 18, device = png)
