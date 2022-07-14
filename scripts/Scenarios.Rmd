@@ -1978,13 +1978,19 @@ maybe try implementing this example
 
 ### Ben-Micheal Approach
 
-```{r, include = F}
+```{r, include = F, eval = F}
 source("../helper_func_ed.R")
+
+all_states2$time_first_treat3 <- all_states2$time_first_treat
+all_states2$time_first_treat3[all_states2$time_first_treat == 0] <- NA
+
+#add dates for the date_var 
+
 
 m4 <- fit_event_jack(outcome_var = "outcome", 
                          date_var = "time", 
                          unit_var = "state",
-                         policy_var = "time_first_treat", 
+                         policy_var = "time_first_treat3", 
                          data = all_states2, 
                          max_time_to = 10000)
   
