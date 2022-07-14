@@ -15,8 +15,6 @@ table(results_df_summary$method)
 # staggered.SA                        TWFE           TWFE.ever.adopted 
 # target.trial
 
-# note that we don't have stacked.regression below -- need to double check what 
-# these results are to make sure we plot them 
 results_df_summary %<>% 
   mutate(method2 = fct_relevel(method, c("TWFE",
                                          "group.time.ATT", "staggered.SA", 
