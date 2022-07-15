@@ -22,6 +22,10 @@ colorize <- function(x, color) {
 }
 ```
 
+`r colorize("Hi Dana, thanks for reading this over. If you leave comments, can you use this colorize() function (see the Rmd code used to show this sentence in blue. This will help ensure I can easily find your comments.", "blue")`
+
+`r colorize("I got the Ben-Micheal approach working for Scenario 8 (by event time) and think the functions work for Scenario 4 and 5. But I can't seem to get the _sum functions to work for Scen 6 to 7. Let me know if you have an idea what is going wrong/can get it to work.", "blue")`
+
 ## How to use this Companion Guide
 
 **Citations**
@@ -58,7 +62,7 @@ issue.
 In the following examples, the effect of state policy changes on a health 
 outcome is the effect of interest. 
 
-### Load the R packages used in this analysis
+### Load the R packages and functions used in this analysis
 
 First, load the packages for reading and plotting the data. The packages `bacondecomp`,  
 `did`, and `staggered` are specific to DID analyses. 
@@ -72,7 +76,7 @@ riddellPath <- c( "/data/riddell//R/x86_64-pc-linux-gnu-library/4.1/" , .libPath
 ```{r load-libraries, warning=F, message=F}
 # you will need to install these packages if you don't have them already
 # install.packages(c("here", "readxl", "tidyverse", "patchwork", "magrittr", 
-# "broom", "ggrepel",  "bacondecomp", "staggered", "devtools"))
+# "broom", "ggrepel", "lubridate", "bacondecomp", "staggered", "devtools"))
 # devtools::install_github("bcallaway11/did") 
 # as of July 11, 2022, package `did` is currently unavailable on CRAN, so you 
 # need to install the developer version from GitHub, using the code above.
@@ -87,10 +91,24 @@ library(patchwork) #"stiches" together ggplots
 library(magrittr) #pipes
 library(broom) #tidy displays
 library(ggrepel) #for labelling points on a ggplot
+library(lubridate) #helps with date objects
 library(bacondecomp) #Goodman Bacon Decomposition
 library(did) #Callaway and Sant'Anna estimator for DID
 library(staggered) #Sun and Abraham estimator for DID
 ```
+The target trial estimator was implemented using code revised from the creator's
+[GitHub repository](https://github.com/ebenmichael/policy-trial-emulation). We
+use `source()` to read in the functions here: 
+
+```{r}
+source("../helper_func_ed.R")
+source("../helper_func_ed_sum.R")
+source("../helper_func_ed_sum_hte.R")
+```
+
+The first file is a slightly edited version of the original helper_funcs.R file
+found in Ben-Micheal's linked repository. The other helper functions are ones 
+Dana Goin made to aggregate the estimates under different settings.
 
 ### Package Versions
 
@@ -505,9 +523,12 @@ never-treated, while states 2-4 undergo treatment at time=6. The effects are
 not dynamic in time, but they are heterogeneous with some states having a larger
 treatment effect. 
 
+Note there are two new columns `time_as_date` and `time_first_trt_date` that we
+will use later in this example.
+
 ```{r}
 s4 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen4",
-                col_types = c("text", "numeric", "text", "numeric", "text", "numeric"))
+                col_types = c("text", "numeric", "text", "numeric", "text", "numeric", "date", "date"))
 ```
 
 ```{r, echo=F}
@@ -521,6 +542,7 @@ s4_mean_info <- s4 %>% group_by(state, post) %>%
   pivot_wider(id_cols = state, names_from = post, names_pre = "post_", values_from = mean_y) %>%
   mutate(diff = post_TRUE - post_FALSE)
 ```
+
 ### Visualization of Scenario 4
 
 ```{r, echo=F}
@@ -573,6 +595,8 @@ term. While all states are treated at the same time in this scenario, we can use
 the Goodman-Bacon decomposition function `bacon()` to partition the effect 
 estimate into weighted component parts. 
 
+### Goodman Bacon Decomposition 
+
 Before using the `bacon()` function, we need to create numeric-coded versions of
 some of the variables that are stored as characters: 
 
@@ -611,6 +635,8 @@ can trust the TWFE estimate. For pedagodgical purposes, we also show the estimat
 if we applied the Callaway Sant'Anna estimator using the `att_gt` function to 
 estimate group-time ATEs.
 
+### Group-Time ATT Estimator
+
 Like `bacon()`, `att_gt()` requires all numeric variables. It also requires an
 argument called `gname`. `gname` expects a variable which encodes for each state
 the time of first policy change. For never-treated state 1, this variable 
@@ -632,6 +658,34 @@ summary(m2_ag)
 Here, we see the ATT is equal to `r # m2_ag$overall.att` as estimated by the TWFE 
 model.
 
+### Target Trial Estimator
+
+We can also calculate the estimate using the target trial estimator introduced 
+by Ben-Micheal, Feller, and Stuart. We employ slightly edited versions of the 
+code that these authors provide with their published article. The code 
+calculates estimates of the effect for every 
+combination of adoption cohort and event time, as we as an estimate aggregated 
+across adoption cohorts for each event time. We built upon this code to further
+aggregate across event times to produce one estimate across all post-treatment 
+times using the `fit_event_jack_sum()` and `fit_event_jack_sum_hte()` functions.
+Here we use `fit_event_jack_sum()` because there is only one adoption cohort. 
+
+```{r}
+s4_bm <- fit_event_jack_sum(outcome_var = "outcome", 
+                            date_var = "time_as_date", 
+                            unit_var = "state",
+                            policy_var = "time_first_trt_date", 
+                            data = s4, 
+                            max_time_to = 10000)
+
+s4_bm %<>% mutate(lb = estimate - 1.96*se,
+                      ub = estimate + 1.96*se)
+
+s4_bm
+```
+
+The ATT is equal to the effect estimates by the TWFE model and Callaway and Sant'Anna.
+
 Ideally, we would also show you how to run the Sun and Abraham estimator for 
 this scenario but the function to do so, `staggered_sa()`, throws an error 
 when trying to estimate the standard error. Thus, we will show you how to use
@@ -645,7 +699,8 @@ non-dynamic and there are two never-treated states and two ever-treated states.
 
 ```{r}
 s5 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen5",
-                col_types = c("text", "numeric", "text", "numeric", "text", "numeric"))
+                col_types = c("text", "numeric", "text", "numeric", "text", "numeric", 
+                              "date", "date"))
 ```
 
 ### Visualization of Scenario 5
@@ -794,6 +849,8 @@ s5_comp1 + s5_comp2 + s5_comp3 + s5_comp4 + plot_layout(guides = "collect")
 * Pre-post difference for later-treated state 4 is: 66-39=27
 * $DID_{4 vs 3} = 27-24=3$
 
+### TWFE Regression Model
+
 ```{r}
 s5_mod <- lm(outcome ~  policy + state + factor(time), data = s5)
 tidy(s5_mod)
@@ -801,6 +858,8 @@ tidy(s5_mod)
 
 The coefficient of the policy term is `r s5_mod$coefficients["policy1"]`
 showing that the regression model estimates the ATT.
+
+### Goodman Bacon Decomposition
 
 Using the `bacon()`function, we can see see the four comparisons being made and
 the effect estimates for each comparison. The weight column in the output shows
@@ -823,6 +882,8 @@ We can also see a list of each comparison and it's weight:
 ```{r}
 s5_bacon
 ```
+
+### Group-Time ATT Estimator
 
 For pedagogical purposes, we also show the estimate if we applied the Callaway 
 Sant’Anna estimator using the `att_gt()` function to estimate group-time ATTs.
@@ -853,6 +914,22 @@ summary(s5_cs_ag)
 Here, we see the ATT is equal to `r s5_cs_ag$overall.att` as estimated by the 
 TWFE model.
 
+### Target Trial Estimator
+
+```{r}
+s5_bm <- fit_event_jack_sum(outcome_var = "outcome", 
+                            date_var = "time_as_date", 
+                            unit_var = "state",
+                            policy_var = "time_first_trt_date", 
+                            data = s5, 
+                            max_time_to = 10000)
+
+s5_bm %<>% mutate(lb = estimate - 1.96*se,
+                      ub = estimate + 1.96*se)
+
+s5_bm
+```
+
 **Takeaway:** When a policy's introduction is staggered in time and the treatment
 effect is constant (not dynamic), TWFE can be used to estimate the treatment effect.
 
@@ -864,8 +941,11 @@ the same for both treated groups.
 
 ```{r}
 s6 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen6", 
-                col_types = c("text", "numeric", "text", "numeric", "text", "numeric"))
+                col_types = c("text", "numeric", "text", "numeric", "text", "numeric",
+                              "date", "date"))
 ```
+
+### Visualization of Scenario 6
 
 ```{r, echo=F}
 s6 %<>% mutate(ever_trt = case_when(state %in% c(3, 4) ~ "treated", 
@@ -1023,14 +1103,19 @@ contributes to the TWFE regression estimate!
 
 Let's take a look...
 
+### TWFE Regression Model
+
 ```{r}
 s6_mod <- lm(outcome ~ policy + state + factor(time), 
              data = s6)
 tidy(s6_mod)
 ```
+
 The coefficient of the policy term equals `r s6_mod$coefficients["policy1"] %>% round(2)`.
 We can now use the Goodman Bacon decomposition to see how much weight each of the 
 contrasts contributes to the effect estimate:
+
+### Goodman Bacon Decomposition
 
 ```{r}
 s6 %<>% mutate(state_n = as.numeric(as.character(state)),
@@ -1041,6 +1126,7 @@ s6_bacon <- bacon(outcome ~ policy_n,
       id_var = "state_n",
       time_var = "time")
 ```
+
 It is more helpful to view the four contrasts separately:
 
 ```{r}
@@ -1063,6 +1149,8 @@ So we can see that the TWFE regression estimate is biased because it
 incorporates a contrast that we wouldn't want to make in practice between an 
 earlier treated and a later treated group. To overcome this, we use the 
 Callaway and Sant'Anna estimator. 
+
+### Group-Time ATT Estimator
 
 Like in the earlier examples we start by running the `att_gt()` function. Unlike
 before, we display the output from this step using `summary()`. This output 
@@ -1144,6 +1232,35 @@ summary(s6_cs_ag4)
 ggdid(s6_cs_ag4)
 ```
 
+### Target Trial Estimator
+
+`r colorize("This is not working for this example... not sure why...", "red")``
+
+```{r}
+s6_bm <- fit_event_jack(outcome_var = "outcome", 
+                            date_var = "time_as_date", 
+                            unit_var = "state",
+                            policy_var = "time_first_trt_date", 
+                            data = s6, 
+                            max_time_to = 10000)
+
+
+s6_bm_ave <- s6_bm %>% filter(cohort == "average")
+
+s6_bm_ave %<>% mutate(lb = estimate - 1.96*se,
+                      ub = estimate + 1.96*se)
+
+ggplot(s6_bm_ave, aes(x = event_time, y = estimate)) + 
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_point(aes(col = event_time >= 0)) + 
+  geom_linerange(aes(ymin = lb, ymax = ub, col = event_time >= 0)) + 
+  labs(y = "Estimate", x = "Event time") + 
+  theme_bw() + 
+  scale_color_discrete(labels=c('pre', 'post')) +
+  theme(legend.title=element_blank(), legend.position = "bottom")
+```
+
+
 ### TWFE with `time_since_policy` specification
 
 But what if we model TWFE with the `time_since_change` indicators?
@@ -1180,8 +1297,11 @@ first has a stronger treatment effect (i.e., a steeper change in slope).
 
 ```{r}
 s7 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen7", 
-                col_types = c("text", "numeric", "text", "numeric", "text", "numeric"))
+                col_types = c("text", "numeric", "text", "numeric", "text", "numeric",
+                              "date", "date"))
 ```
+
+### Visualization of Scenario 7
 
 ```{r, echo=F}
 
@@ -1346,6 +1466,8 @@ in the comparison state -- because the control state is still experiencing a str
 This makes the DID for this group and time look negative -- like the treatment
 is associated with a decrease in the outcome!
 
+### TWFE Regression Model
+
 Let's take a look at the regression output:
 
 ```{r}
@@ -1365,6 +1487,8 @@ do we consider the DID estimate of 9 comparing earlier to later treated states?
 It isn't straightforward what the estimate should be when summarizing across 
 several contrasts. Let's consider the Goodman Bacon decomposition to see how 
 much each comparison contributed to the TWFE estimate: 
+
+### Goodman Bacon Decomposition
 
 ```{r}
 s7 %<>% mutate(state_n = as.numeric(as.character(state)),
@@ -1395,6 +1519,8 @@ sum(s7_bacon$estimate*s7_bacon$weight)
 The TWFE estimator is influenced by the forbidden fourth contrast that doesn't 
 meet the parallel trends assumption, so we'd like an estimator that doesn't
 suffer from this concern.
+
+### Group-Time ATT Estimator
 
 Now that we know how to use the Callaway and Sant'Anna code, we can apply it to
 this example as well. Let's start by running the `att_gt()` function. This
@@ -1474,6 +1600,33 @@ Here again we don't display the results using `type = "calendar"` but have inclu
 s7_cs_ag4 <- aggte(s7_cs, type = "calendar")
 summary(s7_cs_ag4)
 ggdid(s7_cs_ag4)
+```
+
+### Target Trial Estimator
+
+`r colorize("This is not working for this example either, any ideas what it happening?", "red")``
+
+```{r}
+s7_bm <- fit_event_jack(outcome_var = "outcome", 
+                        date_var = "time_as_date", 
+                        unit_var = "state",
+                        policy_var = "time_first_trt_date", 
+                        data = s7, 
+                        max_time_to = 10000)
+
+s7_bm_ave <- s7_bm %>% filter(cohort == "average")
+
+s7_bm_ave %<>% mutate(lb = estimate - 1.96*se,
+                      ub = estimate + 1.96*se)
+
+ggplot(s7_bm_ave, aes(x = event_time, y = estimate)) + 
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_point(aes(col = event_time >= 0)) + 
+  geom_linerange(aes(ymin = lb, ymax = ub, col = event_time >= 0)) + 
+  labs(y = "Estimate", x = "Event time") + 
+  theme_bw() + 
+  scale_color_discrete(labels=c('pre', 'post')) +
+  theme(legend.title=element_blank(), legend.position = "bottom")
 ```
 
 ### TWFE with `time_since_policy` specification
@@ -1591,6 +1744,8 @@ states_4045 <- bind_rows(state40, state41, state42, state43, state44, state45)
 all_states <- bind_rows(states_1015, states_2025, states_3035, states_4045)
 ```
 
+### Visualization of Scenario 8
+
 ```{r, echo = F}
 all_states %<>% mutate(ever_trt = case_when(state > 25 ~ "treated", 
                                             state <= 25 ~ "untreated")
@@ -1686,6 +1841,8 @@ ub = summary(s8_mod)$coefficients["policy1", "Estimate"] + 1.96*sqrt(m2_var["pol
 The estimated effect is `r round(est, 1)` with a 95% CI from `r sprintf("%.1f", round(lb, 1))`
 to `r round(ub, 1)`.
 
+### Goodman Bacon Decomposition
+
 We can use the Goodman Bacon decomposition to examine the contrasts contributing to the 
 TWFE estimate. I set up this scenario such that the effects should be the same
 as for scenario 7, though this time the pre-treatment period is longer than in 
@@ -1718,6 +1875,8 @@ later treated, with only 6% of the weight on the forbidden contrast. In the
 next section we will see how these weights change if pre-treatment time is 
 shortened.
 
+### Group-Time ATT Estimator
+
 Compare to Callaway and Sant'Anna's approach:
 
 ```{r}
@@ -1747,6 +1906,7 @@ out what the group specific estimate are we can ask for the estimates by group:
 s8_cs_ag2 <- aggte(s8_cs, type = "group")
 summary(s8_cs_ag2)
 ```
+
 And we can confirm how the simple weighted estimate was calculated:
 
 ```{r}
@@ -1772,6 +1932,8 @@ assumption by investigating if the pre-treatment confidence intervals overlap th
 randomly distributed around the zero line. This is true in our example, so we
 wouldn't be concerned about violating the parallel trends assumption with these
 data. 
+
+### Cohort ATT Estimator
 
 We can also calculate the Sun & Abraham estimator. We couldn't run this for the
 other scenarios because the function throws an error when if cannot estimate the
@@ -1816,6 +1978,57 @@ For this example, the Callaway & Sant'Anna and Sun & Abraham estimates are quite
 close and have overlapping confidence intervals. They're both higher than the 
 TWFE estimate because they do not use information based on the forbidden contrast.
 
+### Target Trial Estimator
+
+We can also consider the Target trial estimator.
+
+Their function relies on the date variable being a date object rather than a
+numeric index. Without loss of generality, we add dates to this dataset picking
+Jan 1, 2015 as the start date by way of exposition and incrementing time by 
+one-month intervals:
+
+```{r}
+all_states$time2 <- as.Date("2015-01-01") #date 0
+all_states$period1 <- paste(all_states$time, " month")
+all_states$time3 <- all_states$time2 %m+% period(all_states$period1) #new time variable
+
+all_states %<>% select(-period1, -time2)
+```
+
+To use this estimator, the `time_first_treat` variable needs to be set to 
+missing for the untreated states for the function to run:
+
+```{r}
+all_states %<>% mutate(time_first_treat3 = case_when(time_first_treat2 == 15 ~ as.Date("2016-04-01"),
+                                                    time_first_treat2 == 22 ~ as.Date("2016-11-01"),
+                                                    is.infinite(time_first_treat2) ~ NA_Date_))
+
+#check the coding
+#table(all_states2$time_first_treat2, all_states2$time_first_treat3, useNA = "ifany")
+
+s8_bm <- fit_event_jack(outcome_var = "outcome", 
+                        date_var = "time3", 
+                        unit_var = "state",
+                        policy_var = "time_first_treat3", 
+                        data = all_states, 
+                        max_time_to = 10000)
+
+s8_bm_ave <- s8_bm %>% filter(cohort == "average")
+
+s8_bm_ave %<>% mutate(lb = estimate - 1.96*se,
+                      ub = estimate + 1.96*se)
+
+ggplot(s8_bm_ave, aes(x = event_time, y = estimate)) + 
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_point(aes(col = event_time >= 0)) + 
+  geom_linerange(aes(ymin = lb, ymax = ub, col = event_time >= 0)) + 
+  labs(y = "Estimate", x = "Event time") + 
+  theme_bw() + 
+  scale_color_discrete(labels=c('pre', 'post')) +
+  theme(legend.title=element_blank(), legend.position = "bottom")
+  
+```
+
 ## Scenario 9 (same as previous but with less pre-exposure time)
 
 In this scenario, we use the same data from Scenario 8, except we limit the 
@@ -1830,6 +2043,8 @@ We start by limiting the time frame to begin at time t=10 or larger:
 ```{r}
 all_states2 <- all_states %>% filter(time >= 10)
 ```
+
+### Comparison of TWFE Estimates 
 
 And then we re-run the model: 
 
@@ -1858,7 +2073,11 @@ to `r round(ub2, 1)`. Let's compare this with the estimate from Scenario 8:
 |Scenario 9 | `r paste0(round(est2, 1), " (", sprintf("%.1f", round(lb2, 1)), ",", round(ub2, 1), ")")` |
 
 The estimate for Scenario 9 is much lower than that for Scenario
-8. Let's see how the weights from the Bacon decomposition for Scenario 9 compare
+8. 
+
+### Comparison of Goodman Bacon decomposition weights
+
+Let's see how the weights from the Bacon decomposition for Scenario 9 compare
 to Scenario 8. 
 
 Scenario 9 weights:
@@ -1905,7 +2124,9 @@ that introduced treatment at time point 22 because this becomes closer to the mi
 This weighting does not likely correspond to any weighting 
 that the researcher would choose. Concerning!
 
-Let's see how the other estimators are effected by this change:
+### Comparison of Group-Time Estimates
+
+Let's see how the other estimators are affected by this change:
 
 ```{r}
 s9_cs <- att_gt(yname = "outcome", 
@@ -1921,6 +2142,8 @@ summary(s9_cs_ag)
 ```
 The Callaway Sant'Anna estimate of the ATT is the same as for Scenario 9 (with
 a slightly lower SE).
+
+### Comparison of Cohort ATT estimates
 
 What about Sun Abraham's estimate?
 
@@ -1938,60 +2161,36 @@ round(c(s8_sa$estimate, s8_sa$estimate - 1.96*s8_sa$se_neyman, s8_sa$estimate + 
 ```
 The Sun Abraham estimate also stays exactly the same!
 
+### Comparison of the Target trial estimates
+
+```{r}
+s8_bm_hte <- fit_event_jack_sum_hte(outcome_var = "outcome", 
+                        date_var = "time3", 
+                        unit_var = "state",
+                        policy_var = "time_first_treat3", 
+                        data = all_states, 
+                        max_time_to = 10000)
+
+s8_bm_hte %<>% mutate(lb = estimate - 1.96*se,
+                      ub = estimate + 1.96*se)
+
+s8_bm_hte
+
+s9_bm_hte <- fit_event_jack_sum_hte(outcome_var = "outcome", 
+                        date_var = "time3", 
+                        unit_var = "state",
+                        policy_var = "time_first_treat3", 
+                        data = all_states2, 
+                        max_time_to = 10000)
+
+s9_bm_hte %<>% mutate(lb = estimate - 1.96*se,
+                      ub = estimate + 1.96*se)
+
+s9_bm_hte
+```
+
 **Takeway:** The TWFE estimate is affected by the length of the panel. It places
 more weight on contrasts that are closer to the middle of the panel. The 
 Callaway Sant'Anna and Sun Abraham estimates do not have this issue.
 
-## To Do
 
-* Explain how the weight is calculated in the Bacon decomp -- when would it place 
-a lot of weight on the forbidden contrasts? I have another R file called Bacon
-weights where I try and implement the weight formulas but I get stuck...
-* When will the weight be negative? I still haven't figured out what scenario this
-corresponds to. Possibly in a setting where there are no ever-treated states?
-* DISCUSSION OF DIFFERENT TARGET PARAMETERS, AND WHY SOME MIGHT BE OF MORE INTEREST THAN OTHERS
-* https://causalinf.substack.com/p/illustrating-the-bias-of-twfe-in?utm_source=url
-maybe try implementing this example
-
-```{r}
-# s8 <- read_xlsx(here("data", "scenarios.xlsx"), sheet = "scen8", 
-#                 col_types = c("text", "text", "text", "numeric"))
-# 
-# s8 %<>% mutate(state_n = as.numeric(as.character(state)),
-#                policy_n = as.numeric(as.character(policy)))
-
-# s8_bacon <- bacon(formula = outcome ~ policy_n, 
-#                   data = s8,
-#                   id_var = "state_n",
-#                   time_var = "time")
-```
-
-```{r, echo=F}
-# ggplot(s7, aes(x = time, y = outcome)) +
-#  geom_point(aes(col = factor(state))) + labs(title = "Scenario 7 (Staggered, dynamic, and heterogeneous)") +
-#  geom_line(aes(col = factor(state))) +
-#  geom_vline(aes(xintercept = 4.5), lty = 2, col = "#005a32") +
-#  geom_vline(aes(xintercept = 11.5), lty = 2, col = "#99000d") +
-#  scale_color_manual(values = c("#a6cee3","#1f78b4","#005a32", "#99000d")) +
-#  theme_bw()
-```
-
-### Ben-Micheal Approach
-
-```{r, include = F, eval = F}
-source("../helper_func_ed.R")
-
-all_states2$time_first_treat3 <- all_states2$time_first_treat
-all_states2$time_first_treat3[all_states2$time_first_treat == 0] <- NA
-
-#add dates for the date_var 
-
-
-m4 <- fit_event_jack(outcome_var = "outcome", 
-                         date_var = "time", 
-                         unit_var = "state",
-                         policy_var = "time_first_treat3", 
-                         data = all_states2, 
-                         max_time_to = 10000)
-  
-```
