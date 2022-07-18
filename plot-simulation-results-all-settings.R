@@ -160,14 +160,12 @@ results_all <- results_all %>% mutate(pre_post = as.numeric(time_pt>=0))
 # coverage
 results3 <- results_all %>% filter(!parameter %in% c("CTE","HTE","DTE.avg"))
 
-#coverage CR attempt #1
 p41 <- ggplot(results3,
               aes(x = time_pt, y = coverage)) +
   geom_line(aes(col = setting), alpha = 0.75) +
-  #geom_point(aes(col = setting), alpha = 0.5) +
-  geom_vline(xintercept = 0, linetype = 2) +
   geom_hline(yintercept = 0.95) +
-labs(y = "Coverage", x = "Method") +
+  geom_vline(xintercept = 0, lty = 2) +
+  labs(y = "Coverage", x = "Method") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
   scale_y_continuous(labels = scales::percent) +
@@ -181,8 +179,8 @@ ggsave(p41, file="../TWFE-simulation/results/all_dyn_coverage_n1000.png",
 p51 <- ggplot(results3,
               aes(x = time_pt, y = bias)) +
   geom_line(aes(col = setting), alpha = 0.75) +
-  geom_vline(xintercept = 0, linetype = 2) +
   geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0, lty = 2) +
   labs(y = "Bias", x = "Method") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
@@ -197,11 +195,12 @@ ggsave(p51, file="../TWFE-simulation/results/all_dyn_bias_n1000_PTB.png",
 p61 <- ggplot(results3,
               aes(x = time_pt, y = MSE)) +
   geom_line(aes(col = setting), alpha = 0.75) +
-  geom_vline(xintercept = 0, linetype = 2) +
+  geom_vline(xintercept = 0, lty = 2) +
   labs(y = "Mean squared error", x = "Method") +
   theme_bw(base_size = 15)  + 
   theme(legend.title=element_blank()) + 
   scale_color_manual(values = c("black", "red", "blue", "purple")) +
+  scale_y_continuous(limits = c(NA, 0.000125)) + 
   facet_wrap(~method4, nrow = 1)
 
 p61
@@ -214,13 +213,12 @@ ggsave(p61, file="../TWFE-simulation/results/all_dyn_mse_n1000_PTB.png",
 p71 <- ggplot(results3,
               aes(x = time_pt, y = power)) +
   geom_line(aes(col = setting), alpha = 0.75) +
-  geom_vline(xintercept = 0, linetype = 2) +
-  #geom_hline(yintercept = 1) +
   labs(y = "Power", x = "Method") +
   theme_bw(base_size = 15) + 
   scale_y_continuous(labels = scales::percent) +
   theme(legend.title=element_blank()) + 
   scale_color_manual(values = c("black", "red", "blue", "purple")) +
+  scale_x_continuous(limits = c(0, NA)) +
   facet_wrap(~method4, nrow = 1)
 
 p71
@@ -228,7 +226,9 @@ p71
 ggsave(p71, file="../TWFE-simulation/results/all_dyn_power_n1000_PTB.png", 
        width=15, height = 3.5, device = png)
 
-dyn_all <- p41 + p51 + p61 + p71 + plot_layout(nrow = 4, guides = "collect")
+dyn_all <- p41 + p51 + p61 + p71 + plot_layout(nrow = 4, guides = "collect") & theme(legend.position = "bottom")
+
+dyn_all
 
 ggsave(dyn_all, file="../TWFE-simulation/results/dyn_all2_n1000_PTB.png", 
        width=18, height = 18, device = png)

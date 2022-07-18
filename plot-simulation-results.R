@@ -173,28 +173,12 @@ results_df_summary <- results_df_summary %>% mutate(pre_post = as.numeric(time_p
 # coverage
 results3 <- results_df_summary %>% filter(!parameter %in% c("CTE","HTE","DTE.avg"))
 
-
-#coverage CR attempt #1
 p41 <- ggplot(results3,
               aes(x = time_pt, y = coverage)) +
   geom_line() +
+  geom_vline(xintercept = 0, lty = 2) +
   geom_point() +
-  geom_vline(xintercept = 0, linetype = 2) +
   geom_hline(yintercept = 0.95) +
-  # scale_color_manual(values=c("#9e0142", #burgandy
-  #                             "#66c2a5",  #seafoam green
-  #                             "grey",
-  #                             "#e34a33",  #fire engine red
-  #                             "black",
-  #                             "#4393c3"), #cornflower blue),
-  #                    labels=c("TWFE",
-  #                             "Group-time \nATT",
-  #                             "Cohort ATT",
-  #                             "Ever-treated \nTWFE",
-  #                             "Ever-treated \ngroup-time ATT",
-  #                             "Target Trial"
-  #                             )
-  # ) +
   labs(y = "Coverage", x = "Method") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
@@ -202,7 +186,6 @@ p41 <- ggplot(results3,
   facet_wrap(~method4, nrow = 1)
 
 p41
-#ggsave(p41, file="../TWFE-simulation/results/twfe_sim_coverage3_PTB.pdf", width=10)
 ggsave(p41, file="../TWFE-simulation/results/dyn_coverage_n1000.png", 
        width=15,height = 3.5, device = png)
 
@@ -210,12 +193,12 @@ p51 <- ggplot(results3,
               aes(x = time_pt, y = bias)) +
   geom_line() +
   geom_point() +
-  geom_vline(xintercept = 0, linetype = 2) +
+  geom_vline(xintercept = 0, lty = 2) +
   geom_hline(yintercept = 0) +
   labs(y = "Bias", x = "Method") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
-  facet_wrap(~method4, nrow = 1)
+  facet_wrap(~method4, nrow = 1) 
 
 p51
 #ggsave(p51, file="../TWFE-simulation/results/twfe_sim_bias3_PTB.pdf", width=10)
@@ -226,14 +209,13 @@ p61 <- ggplot(results3,
               aes(x = time_pt, y = MSE)) +
   geom_line() +
   geom_point() +
-  geom_vline(xintercept = 0, linetype = 2) +
+  geom_vline(xintercept = 0, lty = 2) +
   labs(y = "Mean squared error", x = "Method") +
   theme_bw(base_size = 15)  + 
   theme(legend.title=element_blank()) + 
-  facet_wrap(~method4, nrow = 1)
+  facet_wrap(~method4, nrow = 1) 
 
 p61
-#ggsave(p61, file="../TWFE-simulation/results/twfe_sim_mse3_PTB.pdf", width=10)
 
 ggsave(p61, file="../TWFE-simulation/results/dyn_mse_n1000_PTB.png", 
        width=15,height = 3.5, device = png)
@@ -244,12 +226,11 @@ p71 <- ggplot(results3,
               aes(x = time_pt, y = power)) +
   geom_line() +
   geom_point() +
-  geom_vline(xintercept = 0, linetype = 2) +
-  #geom_hline(yintercept = 1) +
   labs(y = "Power", x = "Method") +
   theme_bw(base_size = 15) + 
   scale_y_continuous(labels = scales::percent) +
-  theme(legend.title=element_blank()) + 
+  scale_x_continuous(limits = c(0, NA)) +
+  theme(legend.title = element_blank()) + 
   facet_wrap(~method4, nrow = 1)
 
 p71
@@ -259,5 +240,7 @@ ggsave(p71, file="../TWFE-simulation/results/dyn_power_n1000_PTB.png",
 
 dyn_all <- p41 + p51 + p61 + p71 + plot_layout(nrow = 4, guides = "collect")
 
+dyn_all
+
 ggsave(dyn_all, file="../TWFE-simulation/results/dyn_all_n1000_PTB.png", 
-       width=18, height = 18, device = png)
+       width=18, height = 15, device = png)
