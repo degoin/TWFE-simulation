@@ -67,8 +67,8 @@ p1 <- ggplot(results2, aes(x = method3, y = coverage)) +
 
 p1
 
-ggsave(p1, file="../TWFE-simulation/results/twfe_all_sim_coverage_PTB_n1000.png", 
-       width=15, height = 5, device = "png")
+# ggsave(p1, file="../TWFE-simulation/results/twfe_all_sim_coverage_PTB_n1000.png", 
+#        width=15, height = 5, device = "png")
 
 p2 <- ggplot(results2, aes(x= method3, y = bias))  + 
   geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = -0.006, ymax = 0.01),
@@ -86,12 +86,11 @@ p2 <- ggplot(results2, aes(x= method3, y = bias))  +
   scale_fill_manual(values = c("black", "red", "blue", "purple")) + 
   theme(axis.text.x=element_text(angle = 45, vjust = 0.1))  + 
   theme(legend.position = "none") 
-#+ scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33"))
 
 p2
 
-ggsave(p2, file="../TWFE-simulation/results/twfe_all_sim_bias_PTB_n1000.png", 
-       width=15, height = 5, device = "png")
+# ggsave(p2, file="../TWFE-simulation/results/twfe_all_sim_bias_PTB_n1000.png", 
+#        width=15, height = 5, device = "png")
 
 p3 <- ggplot(results2, aes(x = method3, y = MSE)) + 
   geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = 0, ymax = 9.2e-05),
@@ -109,12 +108,11 @@ p3 <- ggplot(results2, aes(x = method3, y = MSE)) +
   scale_fill_manual(values = c("black", "red", "blue", "purple")) + 
   theme(axis.text.x=element_text(angle = 45, vjust = 0.1))  + 
   theme(legend.position = "none")  
-#+ scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3", "#e34a33"))
 
 p3
 
-ggsave(p3, file="../TWFE-simulation/results/twfe_all_sim_mse_PTB_n1000.png", 
-       width=15, height = 5, device = "png")
+# ggsave(p3, file="../TWFE-simulation/results/twfe_all_sim_mse_PTB_n1000.png", 
+#        width=15, height = 5, device = "png")
 
 p4 <- ggplot(results2, aes(x = method3, y = power)) + 
   geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = 0.5, ymax = 1.1),
@@ -133,16 +131,15 @@ p4 <- ggplot(results2, aes(x = method3, y = power)) +
   theme(axis.text.x=element_text(angle = 45, vjust = 0.1))  + 
   theme(legend.position = "none") +
   scale_y_continuous(labels = scales::percent) 
-#+ scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3", "#e34a33"))
 
 p4
-ggsave(p4, file="../TWFE-simulation/results/twfe_all_sim_power_PTB_n1000.png", 
-       width = 15, height = 5, device = "png")
+# ggsave(p4, file="../TWFE-simulation/results/twfe_all_sim_power_PTB_n1000.png", 
+#        width = 15, height = 5, device = "png")
 
 all_1 <- p1 + p2 + p3 + p4 + plot_layout(nrow = 4)
 all_1
-ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all2_PTB_n1000.png", 
-       width=15, height = 20, device = "png")
+# ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all2_PTB_n1000.png", 
+#        width=15, height = 20, device = "png")
 
 
 results_all %<>% 
@@ -165,7 +162,7 @@ p41 <- ggplot(results3,
   geom_line(aes(col = setting), alpha = 0.75) +
   geom_hline(yintercept = 0.95) +
   geom_vline(xintercept = 0, lty = 2) +
-  labs(y = "Coverage", x = "Method") +
+  labs(y = "Coverage", x = "Event Time") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
   scale_y_continuous(labels = scales::percent) +
@@ -181,7 +178,7 @@ p51 <- ggplot(results3,
   geom_line(aes(col = setting), alpha = 0.75) +
   geom_hline(yintercept = 0) +
   geom_vline(xintercept = 0, lty = 2) +
-  labs(y = "Bias", x = "Method") +
+  labs(y = "Bias", x = "Event Time") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
   scale_color_manual(values = c("black", "red", "blue", "purple")) + 
@@ -196,7 +193,7 @@ p61 <- ggplot(results3,
               aes(x = time_pt, y = MSE)) +
   geom_line(aes(col = setting), alpha = 0.75) +
   geom_vline(xintercept = 0, lty = 2) +
-  labs(y = "Mean squared error", x = "Method") +
+  labs(y = "Mean squared error", x = "Event Time") +
   theme_bw(base_size = 15)  + 
   theme(legend.title=element_blank()) + 
   scale_color_manual(values = c("black", "red", "blue", "purple")) +
@@ -213,7 +210,7 @@ ggsave(p61, file="../TWFE-simulation/results/all_dyn_mse_n1000_PTB.png",
 p71 <- ggplot(results3,
               aes(x = time_pt, y = power)) +
   geom_line(aes(col = setting), alpha = 0.75) +
-  labs(y = "Power", x = "Method") +
+  labs(y = "Power", x = "Event Time") +
   theme_bw(base_size = 15) + 
   scale_y_continuous(labels = scales::percent) +
   theme(legend.title=element_blank()) + 
