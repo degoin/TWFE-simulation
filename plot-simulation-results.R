@@ -38,12 +38,6 @@ results_df_summary %<>%
                                           "Target trial", 
                                           "Ever-treated TWFE", "Ever-treated group-time ATT"))
          )
-
-
-# scale_x_continuous(breaks = c(1:6), labels=c("TWFE", "Group-time \nATT",
-#                                              "Cohort ATT", "Target trial", 
-#                                              "Ever-treated \nTWFE",
-#                                              "Ever-treated \ngroup-time ATT")) +
   
 #check that the reorder worked:
 table(results_df_summary$method2)
@@ -80,9 +74,8 @@ p1 <- ggplot(results2, aes(x = method3, y = coverage)) +
   scale_y_continuous(labels = scales::percent) 
 
 p1
-#ggsave(p1, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_coverage_PTB.pdf", width=10)
-ggsave(p1, file="../TWFE-simulation/results/twfe_sim_coverage_PTB_n1000.png", 
-       width=15, height = 5, device = "png")
+# ggsave(p1, file="../TWFE-simulation/results/twfe_sim_coverage_PTB_n1000.png", 
+#        width=15, height = 5, device = "png")
 
 p2 <- ggplot(results2, aes(x= method3, y = bias))  + 
   geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = -0.002, ymax = 0.005),
@@ -99,13 +92,10 @@ p2 <- ggplot(results2, aes(x= method3, y = bias))  +
                                                "Ever-treated \ngroup-time ATT")) +
   theme(axis.text.x=element_text(angle = 45, vjust = 0.1))  + 
   theme(legend.position = "none") 
-#+ scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3","#e34a33"))
 
 p2
-#ggsave(p2, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_bias_PTB.pdf", width=10)
-#ggsave(p2, file="../TWFE-simulation/results/twfe_sim_bias_PTB.pdf", width=10)
-ggsave(p2, file="../TWFE-simulation/results/twfe_sim_bias_PTB_n1000.png", 
-       width=15, height = 5, device = "png")
+# ggsave(p2, file="../TWFE-simulation/results/twfe_sim_bias_PTB_n1000.png", 
+#        width=15, height = 5, device = "png")
 
 
 p3 <- ggplot(results2, aes(x = method3, y = MSE)) + 
@@ -123,13 +113,10 @@ p3 <- ggplot(results2, aes(x = method3, y = MSE)) +
                                                "Ever-treated \ngroup-time ATT")) +
   theme(axis.text.x=element_text(angle = 45, vjust = 0.1))  + 
   theme(legend.position = "none")  
-#+ scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3", "#e34a33"))
 
 p3
-#ggsave(p3, file="/Users/danagoin/Documents/Research projects/TWFE/results/twfe_sim_mse_PTB.pdf", width=10)
-#ggsave(p3, file="../TWFE-simulation/results/twfe_sim_mse_PTB.pdf", width=10)
-ggsave(p3, file="../TWFE-simulation/results/twfe_sim_mse_PTB_n1000.png", 
-       width=15, height = 5, device = "png")
+# ggsave(p3, file="../TWFE-simulation/results/twfe_sim_mse_PTB_n1000.png", 
+#        width=15, height = 5, device = "png")
 
 p4 <- ggplot(results2, aes(x = method3, y = power)) + 
   geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = 0.5, ymax = 1.1),
@@ -150,13 +137,13 @@ p4 <- ggplot(results2, aes(x = method3, y = power)) +
 #+ scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3", "#e34a33"))
 
 p4
-ggsave(p4, file="../TWFE-simulation/results/twfe_sim_power_PTB_n1000.png", 
-       width = 15, height = 5, device = "png")
+# ggsave(p4, file="../TWFE-simulation/results/twfe_sim_power_PTB_n1000.png", 
+#        width = 15, height = 5, device = "png")
 
 all_1 <- p1 + p2 + p3 + p4 + plot_layout(nrow = 4)
 all_1
-ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all_PTB_n1000.png", 
-       width=15, height = 20, device = "png")
+#ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all_PTB_n1000.png", 
+#       width=15, height = 20, device = "png")
 
 results_df_summary %<>% 
   mutate(ever.adopted.est = 
@@ -179,7 +166,7 @@ p41 <- ggplot(results3,
   geom_vline(xintercept = 0, lty = 2) +
   geom_point() +
   geom_hline(yintercept = 0.95) +
-  labs(y = "Coverage", x = "Method") +
+  labs(y = "Coverage", x = "Event Time") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
   scale_y_continuous(labels = scales::percent) +
@@ -195,7 +182,7 @@ p51 <- ggplot(results3,
   geom_point() +
   geom_vline(xintercept = 0, lty = 2) +
   geom_hline(yintercept = 0) +
-  labs(y = "Bias", x = "Method") +
+  labs(y = "Bias", x = "Event Time") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
   facet_wrap(~method4, nrow = 1) 
@@ -210,7 +197,7 @@ p61 <- ggplot(results3,
   geom_line() +
   geom_point() +
   geom_vline(xintercept = 0, lty = 2) +
-  labs(y = "Mean squared error", x = "Method") +
+  labs(y = "Mean squared error", x = "Event Time") +
   theme_bw(base_size = 15)  + 
   theme(legend.title=element_blank()) + 
   facet_wrap(~method4, nrow = 1) 
@@ -226,7 +213,7 @@ p71 <- ggplot(results3,
               aes(x = time_pt, y = power)) +
   geom_line() +
   geom_point() +
-  labs(y = "Power", x = "Method") +
+  labs(y = "Power", x = "Event Time") +
   theme_bw(base_size = 15) + 
   scale_y_continuous(labels = scales::percent) +
   scale_x_continuous(limits = c(0, NA)) +
