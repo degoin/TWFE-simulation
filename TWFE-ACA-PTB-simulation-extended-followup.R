@@ -19,6 +19,7 @@ packageVersion("did")
 source("helper_func_ed.R")
 source("helper_func_ed_sum.R")
 source("helper_func_ed_sum_hte.R")
+source("helper_func_ed_sum_C.R")
 
 
 #set.seed(15295632) #broke at iteration 45 (see error sent to Dana)
@@ -247,7 +248,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print("gt ATT")
   # estimate effects using group-time ATT from Callaway and Sant'Anna
   m2 <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat, anticipation=0)
-  m2_ag <- aggte(m2, type="group")
+  m2_ag <- aggte(m2, type="simple")
   #m2_ag$overall.att
   
   print("sun abraham")
@@ -262,7 +263,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   dat$A_month <- as.Date(dat$A_month)
   
   # estimate effects using Ben Michael target trial approach 
-  m4 <- fit_event_jack_sum(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat, max_time_to = 10000)
+  m4 <- fit_event_jack_sum_C(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat, max_time_to = 10000)
   
   
   print("TWFE ever-treated")
@@ -278,7 +279,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print("gt ATT not yet treated")
   # estimate effects using group-time ATT for only those who are not yet treated
   m2_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_i, anticipation=0, control_group = "notyettreated")
-  m2_ea_ag <- aggte(m2_ea, type="group")
+  m2_ea_ag <- aggte(m2_ea, type="simple")
   
   # estimate effects using Sun and Abraham approach among those who are not yet treated 
   # I don't think this will work because it drops the times that only have 1 treated unit, which are the not-yet-treated units 
@@ -462,7 +463,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   
   print("dynamic: SA")
   # estimate effects using Sun and Abraham approach 
-  m3_dte <- staggered_sa(df = dat_dte, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "calendar")
+  m3_dte <- staggered_sa(df = dat_dte, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "simple")
   
   print("target trial")
   dat_dte<- dat_dte %>% ungroup()
@@ -470,7 +471,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   dat_dte$A_month <- as.Date(dat_dte$A_month)
   
   # estimate effects using Ben Michael target trial approach 
-  m4_dte <- fit_event_jack_sum(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat_dte, max_time_to = 10000)
+  m4_dte <- fit_event_jack_sum_C(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat_dte, max_time_to = 10000)
   
   
   print("dynamic: TWFE eventually treated")
@@ -574,7 +575,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   m2_dte_yr_ag <- aggte(m2_dte_yr, type="dynamic", cband=TRUE)
   #summary(m2_hte_ag) 
   
-  print("yearly effect in post period Ben Micheal")
+  print("yearly effect in post period Ben Michael")
   # estimate effects using stacked regression from Ben Michael paper 
   dat_dte <- dat_dte %>% ungroup()
   dat_dte$month <- as.Date(dat_dte$month)
