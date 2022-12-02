@@ -15,6 +15,7 @@ set.seed(461)
 source("helper_func_ed.R")
 source("helper_func_ed_sum.R")
 source("helper_func_ed_sum_hte.R")
+source("helper_func_ed_sum_C.R")
 
 # combine all years of state-month PTB rates into one data frame
 df_ls <- list()
@@ -157,7 +158,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print("gt ATT")
   # estimate effects using group-time ATT
   m2 <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat, anticipation=0)
-  m2_ag <- aggte(m2, type="group")
+  m2_ag <- aggte(m2, type="simple")
 
   print("sun abraham")
   # estimate effects using Sun and Abraham approach 
@@ -171,7 +172,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   dat$A_month <- as.Date(dat$A_month)
   
   # estimate effects using Ben Michael target trial approach 
-  m4 <- fit_event_jack_sum(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat, max_time_to = 10000)
+  m4 <- fit_event_jack_sum_C(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat, max_time_to = 10000)
   
   
   print("TWFE ever-treated")
@@ -185,7 +186,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   print("gt ATT not yet treated")
   # estimate effects using group-time ATT for only those who are not yet treated
   m2_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_i, anticipation=0, control_group = "notyettreated")
-  m2_ea_ag <- aggte(m2_ea, type="group")
+  m2_ea_ag <- aggte(m2_ea, type="simple")
   
   
   # define truth 
@@ -365,7 +366,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   
   print("dynamic: SA")
   # estimate effects using Sun and Abraham approach 
-  m3_dte <- staggered_sa(df = dat_dte, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "calendar")
+  m3_dte <- staggered_sa(df = dat_dte, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "simple")
   
   print("target trial")
   dat_dte<- dat_dte %>% ungroup()
@@ -373,7 +374,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
   dat_dte$A_month <- as.Date(dat_dte$A_month)
   
   # estimate effects using Ben Michael target trial approach 
-  m4_dte <- fit_event_jack_sum(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat_dte, max_time_to = 10000)
+  m4_dte <- fit_event_jack_sum_C(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat_dte, max_time_to = 10000)
   
   
   print("dynamic: TWFE eventually treated")
@@ -401,7 +402,7 @@ sim_rep <- function(iteration, dat, CTE, HTE, DTE) {
                          DTE[2]*sum(dat_dte_i$time_since_A>=12 & dat_dte_i$time_since_A<24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<=max(m2_dte_ea$group), na.rm=T) +
                         DTE[3]*sum(dat_dte_i$time_since_A>=24  & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T))/sum(dat_dte_i$time_since_A>=0 & dat_dte_i$ever_A==1 & dat_dte_i$A_time<max(m2_dte_ea$group), na.rm=T)
   
-  dte_truth_avg_ea <- (DTE[1]*12 + DTE[2]*12 + DTE[3]*(max(dat_dte_i$A_time) - min(dat_dte_i$A_time) - 24))/(max(dat_dte_i$A_time) - min(dat_dte_i$A_time))
+  #dte_truth_avg_ea <- (DTE[1]*12 + DTE[2]*12 + DTE[3]*(max(dat_dte_i$A_time) - min(dat_dte_i$A_time) - 24))/(max(dat_dte_i$A_time) - min(dat_dte_i$A_time))
 
   print("dynamic combine")
   # combine results 
