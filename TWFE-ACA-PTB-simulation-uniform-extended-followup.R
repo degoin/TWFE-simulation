@@ -16,6 +16,7 @@ set.seed(461)
 source("helper_func_ed.R")
 source("helper_func_ed_sum.R")
 source("helper_func_ed_sum_hte.R")
+source("helper_func_ed_sum_C.R")
 
 # combine all years of state-month PTB rates into one data frame
 df_ls <- list()
@@ -230,7 +231,7 @@ m1_var <- vcovHC(m1, type="HC3")
 print("gt ATT")
 
 m2 <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat, anticipation=0)
-m2_ag <- aggte(m2, type="group")
+m2_ag <- aggte(m2, type="simple")
 #m2_ag$overall.att
 
 print("sun abraham")
@@ -245,7 +246,7 @@ dat$month <- as.Date(dat$month)
 dat$A_month <- as.Date(dat$A_month)
 
 # estimate effects using Ben Michael target trial approach 
-m4 <- fit_event_jack_sum(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat, max_time_to = 10000)
+m4 <- fit_event_jack_sum_C(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat, max_time_to = 10000)
 
 
 print("TWFE ever-treated")
@@ -260,7 +261,7 @@ m1_var_i <- vcovHC(m1_i, type="HC3")
 print("gt ATT not yet treated")
 # estimate effects using group-time ATT for only those who are not yet treated
 m2_ea <- att_gt(yname="Y", tname="month_ind", idname="FIPS", gname="A_time", data=dat_i, anticipation=0, control_group = "notyettreated")
-m2_ea_ag <- aggte(m2_ea, type="group")
+m2_ea_ag <- aggte(m2_ea, type="simple")
 
 
 # define truth 
@@ -443,7 +444,7 @@ m2_dte_ag <- aggte(m2_dte, type="simple")
 
 print("dynamic: SA")
 # estimate effects using Sun and Abraham approach 
-m3_dte <- staggered_sa(df = dat_dte, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "calendar")
+m3_dte <- staggered_sa(df = dat_dte, i = "FIPS", t = "month_ind", g = "A_time_sa", y = "Y", estimand = "simple")
 
 print("target trial")
 dat_dte<- dat_dte %>% ungroup()
@@ -451,7 +452,7 @@ dat_dte$month <- as.Date(dat_dte$month)
 dat_dte$A_month <- as.Date(dat_dte$A_month)
 
 # estimate effects using Ben Michael target trial approach 
-m4_dte <- fit_event_jack_sum(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat_dte, max_time_to = 10000)
+m4_dte <- fit_event_jack_sum_C(outcome_var = "Y", date_var = "month", unit_var = "state_name", policy_var = "A_month", data = dat_dte, max_time_to = 10000)
 
 
 
