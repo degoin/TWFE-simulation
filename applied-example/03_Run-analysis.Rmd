@@ -17,11 +17,13 @@ Note that the restricted births data is not available publicly and so is not upl
 
 ./home/corinneriddell/ACA-PTB/output-data/results.csv:Contains the parameter estimate and CI for the TWFE specifications
 
-```{r load-libraries}
+```{r set-path}
 # set path
 riddellPath <- c( "/data/riddell//R/x86_64-pc-linux-gnu-library/4.1/" , .libPaths() )
 .libPaths(riddellPath)
+```
 
+```{r load-libraries}
 # load libraries
 library(magrittr)
 library(tidyverse)
@@ -33,11 +35,14 @@ library(ggrepel)
 library(sandwich)
 library(did)
 library(tigris)
+
+packageVersion("did")
 ```
 
 ```{r}
 #load in the restricted births data
-all_years2 <- fread("./restricted-data/births_all")
+#all_years2 <- fread("./restricted-data/births_all")
+all_years2 <- fread("/home/corinneriddell/ACA-PTB/restricted-data/births_all")
 ```
 
 ### DID model with individual level data
@@ -177,7 +182,7 @@ ggplot(results4, aes(y = method, x = estimate2)) + geom_point() +
   geom_linerange(aes(xmin = lb2, xmax = ub2)) + 
   labs(y = "", x = "Risk difference (percentage points)")
 
-write_csv(results4, file = "/home/corinneriddell/ACA-PTB/output-data/results.csv")
+#write_csv(results4, file = "/home/corinneriddell/ACA-PTB/output-data/results.csv")
 
 ```
 
