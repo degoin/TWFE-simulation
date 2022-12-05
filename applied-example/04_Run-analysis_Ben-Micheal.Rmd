@@ -32,7 +32,8 @@ library(tigris)
 ```
 
 ```{r}
-all_years2 <- fread("./restricted-data/births_all")
+#all_years2 <- fread("./restricted-data/births_all")
+all_years2 <- fread("/home/corinneriddell/ACA-PTB/restricted-data/births_all")
 ```
 
 ```{r}
