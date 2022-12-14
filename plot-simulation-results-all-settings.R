@@ -1,13 +1,15 @@
 library(tidyverse)
 library(magrittr)
+library(ggrepel)
+library(patchwork)
 
 results_df_summary <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_12062022.csv") %>%
   mutate(setting = "Original")
-results_df_summary_u <- read_csv("./results/twfe_uniform_sim_results_summary_PTB_n1000_07112022.csv") %>%
+results_df_summary_u <- read_csv("./results/twfe_uniform_sim_results_summary_PTB_n1000_12092022.csv") %>%
   mutate(setting = "Uniform event times")
-results_df_summary_ue <- read_csv("./results/twfe_uniform_sim_results_extended_followup_summary_PTB_n1000_07112022.csv") %>%
+results_df_summary_ue <- read_csv("./results/twfe_uniform_sim_results_extended_followup_summary_PTB_n1000_12092022.csv") %>%
   mutate(setting = "Extended follow-up")
-results_df_summary_e <- read_csv("./results/twfe_sim_results_extended_followup_summary_PTB_n1000_ext_07112022.csv") %>%
+results_df_summary_e <- read_csv("./results/twfe_sim_results_extended_followup_summary_PTB_n1000_ext_12092022.csv") %>%
   mutate(setting = "Uniform and extended")
 
 results_all <- bind_rows(results_df_summary, results_df_summary_u, results_df_summary_e, results_df_summary_ue)
@@ -70,8 +72,8 @@ p1 <- ggplot(results2, aes(x = method3, y = coverage)) +
 
 p1
 
-# ggsave(p1, file="../TWFE-simulation/results/twfe_all_sim_coverage_PTB_n1000.png", 
-#        width=15, height = 5, device = "png")
+ggsave(p1, file="../TWFE-simulation/results/twfe_all_sim_coverage_PTB_n1000.png", 
+        width=15, height = 5, device = "png")
 
 p2 <- ggplot(results2, aes(x= method3, y = bias))  + 
   geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = -0.006, ymax = 0.01),
@@ -92,8 +94,8 @@ p2 <- ggplot(results2, aes(x= method3, y = bias))  +
 
 p2
 
-# ggsave(p2, file="../TWFE-simulation/results/twfe_all_sim_bias_PTB_n1000.png", 
-#        width=15, height = 5, device = "png")
+ggsave(p2, file="../TWFE-simulation/results/twfe_all_sim_bias_PTB_n1000.png", 
+        width=15, height = 5, device = "png")
 
 p3 <- ggplot(results2, aes(x = method3, y = MSE)) + 
   geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = 0, ymax = 9.2e-05),
@@ -114,8 +116,8 @@ p3 <- ggplot(results2, aes(x = method3, y = MSE)) +
 
 p3
 
-# ggsave(p3, file="../TWFE-simulation/results/twfe_all_sim_mse_PTB_n1000.png", 
-#        width=15, height = 5, device = "png")
+ggsave(p3, file="../TWFE-simulation/results/twfe_all_sim_mse_PTB_n1000.png", 
+       width=15, height = 5, device = "png")
 
 p4 <- ggplot(results2, aes(x = method3, y = power)) + 
   geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = 0.5, ymax = 1.1),
@@ -136,13 +138,13 @@ p4 <- ggplot(results2, aes(x = method3, y = power)) +
   scale_y_continuous(labels = scales::percent) 
 
 p4
-# ggsave(p4, file="../TWFE-simulation/results/twfe_all_sim_power_PTB_n1000.png", 
-#        width = 15, height = 5, device = "png")
+ggsave(p4, file="../TWFE-simulation/results/twfe_all_sim_power_PTB_n1000.png", 
+        width = 15, height = 5, device = "png")
 
 all_1 <- p1 + p2 + p3 + p4 + plot_layout(nrow = 4)
 all_1
-# ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all2_PTB_n1000.png", 
-#        width=15, height = 20, device = "png")
+ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all2_PTB_n1000.png", 
+        width=15, height = 20, device = "png")
 
 
 results_all %<>% 
