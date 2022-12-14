@@ -4,7 +4,7 @@ library(magrittr)
 library(forcats)
 library(patchwork)
 
-results_df_summary <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_07112022.csv")
+results_df_summary <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_12062022.csv")
 #results_old <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_06012022.csv")
 
 table(results_df_summary$parameter)
@@ -74,8 +74,8 @@ p1 <- ggplot(results2, aes(x = method3, y = coverage)) +
   scale_y_continuous(labels = scales::percent) 
 
 p1
-# ggsave(p1, file="../TWFE-simulation/results/twfe_sim_coverage_PTB_n1000.png", 
-#        width=15, height = 5, device = "png")
+ ggsave(p1, file="../TWFE-simulation/results/twfe_sim_coverage_PTB_n1000.png", 
+        width=15, height = 5, device = "png")
 
 p2 <- ggplot(results2, aes(x= method3, y = bias))  + 
   geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = -0.002, ymax = 0.005),
@@ -94,8 +94,8 @@ p2 <- ggplot(results2, aes(x= method3, y = bias))  +
   theme(legend.position = "none") 
 
 p2
-# ggsave(p2, file="../TWFE-simulation/results/twfe_sim_bias_PTB_n1000.png", 
-#        width=15, height = 5, device = "png")
+ ggsave(p2, file="../TWFE-simulation/results/twfe_sim_bias_PTB_n1000.png", 
+        width=15, height = 5, device = "png")
 
 
 p3 <- ggplot(results2, aes(x = method3, y = MSE)) + 
@@ -115,8 +115,8 @@ p3 <- ggplot(results2, aes(x = method3, y = MSE)) +
   theme(legend.position = "none")  
 
 p3
-# ggsave(p3, file="../TWFE-simulation/results/twfe_sim_mse_PTB_n1000.png", 
-#        width=15, height = 5, device = "png")
+ ggsave(p3, file="../TWFE-simulation/results/twfe_sim_mse_PTB_n1000.png", 
+        width=15, height = 5, device = "png")
 
 p4 <- ggplot(results2, aes(x = method3, y = power)) + 
   geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = 0.5, ymax = 1.1),
@@ -137,13 +137,13 @@ p4 <- ggplot(results2, aes(x = method3, y = power)) +
 #+ scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3", "#e34a33"))
 
 p4
-# ggsave(p4, file="../TWFE-simulation/results/twfe_sim_power_PTB_n1000.png", 
-#        width = 15, height = 5, device = "png")
+ ggsave(p4, file="../TWFE-simulation/results/twfe_sim_power_PTB_n1000.png", 
+        width = 15, height = 5, device = "png")
 
 all_1 <- p1 + p2 + p3 + p4 + plot_layout(nrow = 4)
 all_1
-#ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all_PTB_n1000.png", 
-#       width=15, height = 20, device = "png")
+ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all_PTB_n1000.png", 
+       width=15, height = 20, device = "png")
 
 results_df_summary %<>% 
   mutate(ever.adopted.est = 
