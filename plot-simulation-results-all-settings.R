@@ -1,4 +1,7 @@
-results_df_summary <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_07112022.csv") %>%
+library(tidyverse)
+library(magrittr)
+
+results_df_summary <- read_csv("./results/twfe_sim_results_summary_PTB_n1000_12062022.csv") %>%
   mutate(setting = "Original")
 results_df_summary_u <- read_csv("./results/twfe_uniform_sim_results_summary_PTB_n1000_07112022.csv") %>%
   mutate(setting = "Uniform event times")
