@@ -649,4 +649,4 @@ results_df_summary <- results_df_calc %>% group_by(parameter, method) %>% summar
                                                                                        power = mean(power))
 
 
-write.csv(results_df_summary, file="./results/twfe_sim_results_summary_PTB_n5_12062022.csv", row.names = F)
+write.csv(results_df_summary, file="./results/twfe_sim_results_summary_PTB_n1000_12062022.csv", row.names = F)
