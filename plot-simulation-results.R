@@ -189,7 +189,8 @@ p51 <- ggplot(results3,
   labs(y = "Bias", x = "Event Time") +
   theme_bw(base_size = 15) + 
   theme(legend.title=element_blank()) + 
-  facet_wrap(~method4, nrow = 1) 
+  facet_wrap(~method4, nrow = 1) +
+  scale_y_continuous(labels = scales::label_comma()) 
 
 p51
 #ggsave(p51, file="../TWFE-simulation/results/twfe_sim_bias3_PTB.pdf", width=10)
@@ -229,7 +230,7 @@ p71
 ggsave(p71, file="../TWFE-simulation/results/dyn_power_n1000_PTB.png", 
        width=15, height = 3.5, device = png)
 
-dyn_all <- p41 + p51 + p61 + p71 + plot_layout(nrow = 4, guides = "collect")
+dyn_all <- p41 + p51 + p61 + plot_layout(nrow = 3, guides = "collect")
 
 dyn_all
 
