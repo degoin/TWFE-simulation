@@ -61,8 +61,8 @@ p1 <- ggplot(results2, aes(x = method3, y = coverage)) +
   geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = 0.0, ymax = 1.1),
             fill = "lightgrey", alpha = 0.5) +
   geom_point(size=5) + #color = method
-  geom_text(aes(label = format(round(coverage, 2), nmsall = 2)), position = position_nudge(y = 0.08)) + 
-  theme_bw(base_size = 15) + 
+  geom_text(aes(label = format(round(coverage, 2), nmsall = 2)), position = position_nudge(y = 0.08), size = 5) + 
+  theme_bw(base_size = 20) + 
   facet_wrap(~parameter2, labeller = labeller(parameter2 = facet_labels)) + 
   geom_hline(aes(yintercept=0.95), linetype=3) + 
   labs(x = "", y = "Coverage") + 
@@ -83,8 +83,8 @@ p2 <- ggplot(results2, aes(x= method3, y = bias))  +
   geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = -0.002, ymax = 0.005),
             fill = "lightgrey", alpha = 0.5) +
   geom_point(size=5) +
-  geom_text(aes(label = signif(bias, digits = 2)), nudge_y = 0.0005) + 
-  theme_bw(base_size = 15) + 
+  geom_text(aes(label = signif(bias, digits = 2)), nudge_y = 0.0005, size = 5) + 
+  theme_bw(base_size = 20) + 
   facet_wrap(~parameter2, labeller = labeller(parameter2 = facet_labels)) + 
   geom_hline(aes(yintercept=0), linetype=3) + 
   labs(x="", y="Bias") + 
@@ -104,8 +104,8 @@ p3 <- ggplot(results2, aes(x = method3, y = MSE)) +
   geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = 0, ymax = 2.4e-05),
             fill = "lightgrey", alpha = 0.5) +
   geom_point(size=5) + 
-  geom_text(aes(label = signif(MSE, digits = 2)), nudge_y = 0.0000013) +
-  theme_bw(base_size = 15) + 
+  geom_text(aes(label = signif(MSE, digits = 2)), nudge_y = 0.0000013, size = 5) +
+  theme_bw(base_size = 20) + 
   facet_wrap(~parameter2, labeller = labeller(parameter2 = facet_labels)) + 
   geom_hline(aes(yintercept=0), linetype=3) + 
   labs(x="", y="Mean Squared Error") + 
@@ -127,7 +127,7 @@ p4 <- ggplot(results2, aes(x = method3, y = power)) +
             fill = "lightgrey", alpha = 0.5) +
   geom_point(size=5) + 
   geom_text_repel(aes(label = sprintf(power, fmt = '%#.2f'))) +
-  theme_bw(base_size = 15) + 
+  theme_bw(base_size = 20) + 
   facet_wrap(~parameter2, labeller = labeller(parameter2 = facet_labels)) + 
   #geom_hline(aes(yintercept=0), linetype=3) + 
   labs(x="", y="Power") + 
@@ -146,8 +146,8 @@ p4
 
 all_1 <- p1 + p2 + p3 + plot_layout(nrow = 3)
 all_1
-ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all_PTB_n1000.png", 
-       width=15, height = 20, device = "png")
+ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all_PTB_n1000_20230222.png", 
+       width=18, height = 20, device = "png")
 
 results_df_summary %<>% 
   mutate(ever.adopted.est = 
