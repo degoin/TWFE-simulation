@@ -58,11 +58,11 @@ facet_labels <- c(CTE = "Constant treatment effect",
 
 
 p1 <- ggplot(results2, aes(x = method3, y = coverage)) + 
-  geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = 0.0, ymax = 1.1),
-            fill = "lightgrey", alpha = 0.5) +
+  annotate(geom = "rect", xmin = 4.5, xmax = 6.5, ymin = 0.0, ymax = 1.1,
+           fill = "lightgrey", colour = "lightgrey", alpha = 0.5) +
   geom_point(size=5) + #color = method
   geom_text(aes(label = format(round(coverage, 2), nmsall = 2)), position = position_nudge(y = 0.08), size = 5) + 
-  theme_bw(base_size = 20) + 
+  theme_bw(base_size = 25) + 
   facet_wrap(~parameter2, labeller = labeller(parameter2 = facet_labels)) + 
   geom_hline(aes(yintercept=0.95), linetype=3) + 
   labs(x = "", y = "Coverage") + 
@@ -70,8 +70,8 @@ p1 <- ggplot(results2, aes(x = method3, y = coverage)) +
                      labels=c("TWFE", "Group-time \nATT",
                                                "Cohort ATT", "Target trial", 
                                                "Ever-treated \nTWFE",
-                                               "Ever-treated \ngroup-time ATT")) +
-  theme(axis.text.x=element_text(angle = 45, vjust = 0.1)) + #angle = 45) 
+                                               "Ever-treated \ngroup-time ATT"),
+guide = guide_axis(angle = 90)) +
   theme(legend.position = "none") +
   scale_y_continuous(labels = scales::percent) 
 
@@ -80,11 +80,11 @@ p1
         width=15, height = 5, device = "png")
 
 p2 <- ggplot(results2, aes(x= method3, y = bias))  + 
-  geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = -0.002, ymax = 0.005),
-            fill = "lightgrey", alpha = 0.5) +
+  annotate(geom = "rect", xmin = 4.5, xmax = 6.5, ymin = -0.002, ymax = 0.005,
+           fill = "lightgrey", colour = "lightgrey", alpha = 0.5) +
   geom_point(size=5) +
   geom_text(aes(label = signif(bias, digits = 2)), nudge_y = 0.0005, size = 5) + 
-  theme_bw(base_size = 20) + 
+  theme_bw(base_size = 25) + 
   facet_wrap(~parameter2, labeller = labeller(parameter2 = facet_labels)) + 
   geom_hline(aes(yintercept=0), linetype=3) + 
   labs(x="", y="Bias") + 
@@ -92,8 +92,8 @@ p2 <- ggplot(results2, aes(x= method3, y = bias))  +
                      labels=c("TWFE", "Group-time \nATT",
                                                "Cohort ATT", "Target trial", 
                                                "Ever-treated \nTWFE",
-                                               "Ever-treated \ngroup-time ATT")) +
-  theme(axis.text.x=element_text(angle = 45, vjust = 0.1))  + 
+                                               "Ever-treated \ngroup-time ATT"),
+                     guide = guide_axis(angle = 90)) +
   theme(legend.position = "none") 
 
 p2
@@ -101,21 +101,21 @@ p2
         width=15, height = 5, device = "png")
 
 p3 <- ggplot(results2, aes(x = method3, y = MSE)) + 
-  geom_rect(aes(xmin = 4.5, xmax = 6.5, ymin = 0, ymax = 2.4e-05),
-            fill = "lightgrey", alpha = 0.5) +
+  annotate(geom = "rect", xmin = 4.5, xmax = 6.5, ymin = 0, ymax = 2.4e-05,
+           fill = "lightgrey", colour = "lightgrey", alpha = 0.5) +
   geom_point(size=5) + 
-  geom_text(aes(label = signif(MSE, digits = 2)), nudge_y = 0.0000013, size = 5) +
-  theme_bw(base_size = 20) + 
+  geom_text(aes(label = signif(MSE, digits = 2)), nudge_y = 0.0000017, size = 5) +
+  theme_bw(base_size = 25) + 
   facet_wrap(~parameter2, labeller = labeller(parameter2 = facet_labels)) + 
   geom_hline(aes(yintercept=0), linetype=3) + 
   labs(x="", y="Mean Squared Error") + 
   scale_x_continuous(breaks = c(1:6), expand = expansion(mult = 0.1),
-                     labels=c("TWFE", "Group-time \nATT",
+                     labels=c("TWFE", "Group-time ATT",
                                                "Cohort ATT", "Target trial", 
-                                               "Ever-treated \nTWFE",
-                                               "Ever-treated \ngroup-time ATT")) +
+                                               "Ever-treated\n TWFE",
+                                               "Ever-treated \ngroup-time ATT"),
+                     guide = guide_axis(angle = 90)) +
   scale_y_continuous(labels = scales::label_comma()) + 
-  theme(axis.text.x=element_text(angle = 45, vjust = 0.1))  + 
   theme(legend.position = "none")  
 
 p3
@@ -127,15 +127,15 @@ p4 <- ggplot(results2, aes(x = method3, y = power)) +
             fill = "lightgrey", alpha = 0.5) +
   geom_point(size=5) + 
   geom_text_repel(aes(label = sprintf(power, fmt = '%#.2f'))) +
-  theme_bw(base_size = 20) + 
+  theme_bw(base_size = 25) + 
   facet_wrap(~parameter2, labeller = labeller(parameter2 = facet_labels)) + 
   #geom_hline(aes(yintercept=0), linetype=3) + 
   labs(x="", y="Power") + 
   scale_x_continuous(breaks = c(1:6), labels=c("TWFE", "Group-time \nATT",
                                                "Cohort ATT", "Target trial", 
                                                "Ever-treated \nTWFE",
-                                               "Ever-treated \ngroup-time ATT")) +
-  theme(axis.text.x=element_text(angle = 45, vjust = 0.1))  + 
+                                               "Ever-treated \ngroup-time ATT"),
+                     guide = guide_axis(angle = 45)) +
   theme(legend.position = "none") +
   scale_y_continuous(labels = scales::percent) 
 #+ scale_color_manual(values=c("#9e0142", "#66c2a5", "#4393c3", "#e34a33"))
@@ -146,7 +146,7 @@ p4
 
 all_1 <- p1 + p2 + p3 + plot_layout(nrow = 3)
 all_1
-ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all_PTB_n1000_20230222.png", 
+ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all_PTB_n1000_20230303.png", 
        width=18, height = 20, device = "png")
 
 results_df_summary %<>% 
