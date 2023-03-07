@@ -146,8 +146,8 @@ p4
 
 all_1 <- p1 + p2 + p3 + plot_layout(nrow = 3)
 all_1
-ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all_PTB_n1000_20230303.png", 
-       width=18, height = 20, device = "png")
+ggsave(all_1, file="../TWFE-simulation/results/twfe_sim_all_PTB_n1000_20230306.jpeg", 
+       width=18, height = 20, device = "jpeg")
 
 results_df_summary %<>% 
   mutate(ever.adopted.est = 
